@@ -1,20 +1,30 @@
 // ====== CẤU HÌNH NGÂN HÀNG & SUPABASE ======
-const BANK_ID = "MB"; // Thay bằng mã ngân hàng của Thầy (MB, VCB, BIDV, ICB...)
-const ACCOUNT_NO = "0569999956789"; // Thay bằng Số tài khoản của Thầy
+const BANK_ID = "MB";
+const ACCOUNT_NO = "0569999956789";
 const ACCOUNT_NAME = "TRIEU XUAN NAM"; 
 const VIP_PRICE = 10000;
 
 // Thông tin Supabase
 const SUPABASE_URL = 'https://emplcjjqcwpundaqklci.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcGxjampxY3dwdW5kYXFrbGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTEyNjAsImV4cCI6MjEwMjk2NzI2MH0.lXf9toe-FO_eeB0MtIIeyWf7f1E0TtKoRsCXj-SfvyM';
-const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+// Khởi tạo Supabase client an toàn
+let sbClient = null;
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) {
+  console.error("Lỗi khởi tạo Supabase:", e);
+}
 
 // Biến lưu trữ trạng thái
 let currentUser = null;
 let userProfile = { is_paid: false, role: 'user' };
 let trialSearchCount = parseInt(localStorage.getItem('trial_search_count') || '0');
 
-let data = [...DICTIONARY], mode = 'mv';
+let data = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY] : [];
+let mode = 'mv';
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const q = $('#q'), res = $('#results'), exact = $('#exact'), count = $('#count');
 
@@ -85,51 +95,56 @@ q.oninput = () => {
 
 // ====== HỆ THỐNG XÁC THỰC (AUTH) ======
 async function checkAuth() {
-  if (!supabase) return;
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session && session.user) {
-    currentUser = session.user;
-    $('#loginBtn').style.display = 'none';
-    $('#userInfo').style.display = 'block';
-    $('#userEmail').textContent = currentUser.email;
+  if (!sbClient) return;
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session && session.user) {
+      currentUser = session.user;
+      $('#loginBtn').style.display = 'none';
+      $('#userInfo').style.display = 'block';
+      $('#userEmail').textContent = currentUser.email;
 
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-    if (profile) {
-      userProfile = profile;
-      if (profile.role === 'admin') {
-        $('#userStatus').textContent = 'Quản trị viên (Admin)';
-        $('#userStatus').style.background = '#e6f7ff';
-        $('#userStatus').style.color = '#0050b3';
-        $('#ownerBtn').style.display = 'flex';
-      } else if (profile.is_paid) {
-        $('#userStatus').textContent = 'VIP Trọn đời';
-        $('#userStatus').style.background = '#f6ffed';
-        $('#userStatus').style.color = '#389e0d';
-        $('#upgradeBtn').style.display = 'none';
+      const { data: profile } = await sbClient.from('profiles').select('*').eq('id', currentUser.id).single();
+      if (profile) {
+        userProfile = profile;
+        if (profile.role === 'admin') {
+          $('#userStatus').textContent = 'Quản trị viên (Admin)';
+          $('#userStatus').style.background = '#e6f7ff';
+          $('#userStatus').style.color = '#0050b3';
+          $('#ownerBtn').style.display = 'flex';
+        } else if (profile.is_paid) {
+          $('#userStatus').textContent = 'VIP Trọn đời';
+          $('#userStatus').style.background = '#f6ffed';
+          $('#userStatus').style.color = '#389e0d';
+          $('#upgradeBtn').style.display = 'none';
+        }
       }
+      listenPayment(currentUser.id);
+    } else {
+      currentUser = null;
+      userProfile = { is_paid: false, role: 'user' };
+      $('#loginBtn').style.display = 'block';
+      $('#userInfo').style.display = 'none';
+      $('#ownerBtn').style.display = 'none';
     }
-    listenPayment(currentUser.id);
-  } else {
-    currentUser = null;
-    userProfile = { is_paid: false, role: 'user' };
-    $('#loginBtn').style.display = 'block';
-    $('#userInfo').style.display = 'none';
-    $('#ownerBtn').style.display = 'none';
+  } catch (err) {
+    console.error("Lỗi kiểm tra Auth:", err);
   }
 }
 
 // Đăng ký
 $('#btnDoSignUp').onclick = async () => {
+  if (!sbClient) return alert("Hệ thống dữ liệu đang kết nối, vui lòng thử lại!");
   const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
   const msg = $('#authMsg');
   if (!email || password.length < 6) return msg.textContent = 'Vui lòng nhập email và mật khẩu >= 6 ký tự!';
   msg.textContent = 'Đang xử lý đăng ký...';
   
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { data: authData, error } = await sbClient.auth.signUp({ email, password });
   if (error) return msg.textContent = error.message;
   
-  if (data.user) {
-    await supabase.from('profiles').insert([{ id: data.user.id, email: data.user.email, role: 'user', is_paid: false }]);
+  if (authData.user) {
+    await sbClient.from('profiles').insert([{ id: authData.user.id, email: authData.user.email, role: 'user', is_paid: false }]);
   }
   msg.textContent = 'Đăng ký thành công! Đang tải lại...';
   setTimeout(() => location.reload(), 1000);
@@ -137,17 +152,18 @@ $('#btnDoSignUp').onclick = async () => {
 
 // Đăng nhập
 $('#btnDoLogin').onclick = async () => {
+  if (!sbClient) return alert("Hệ thống dữ liệu đang kết nối, vui lòng thử lại!");
   const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
   const msg = $('#authMsg');
   msg.textContent = 'Đang đăng nhập...';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await sbClient.auth.signInWithPassword({ email, password });
   if (error) return msg.textContent = 'Sai tài khoản hoặc mật khẩu!';
   location.reload();
 };
 
 // Đăng xuất
 $('#logoutBtn').onclick = async () => {
-  await supabase.auth.signOut();
+  if (sbClient) await sbClient.auth.signOut();
   location.reload();
 };
 
@@ -169,8 +185,8 @@ function handleUpgradeClick() {
 $('#upgradeBtn').onclick = handleUpgradeClick;
 
 function listenPayment(userId) {
-  if (!supabase) return;
-  supabase
+  if (!sbClient) return;
+  sbClient
     .channel('pay_check')
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, payload => {
       if (payload.new.is_paid) {
@@ -184,9 +200,9 @@ function listenPayment(userId) {
 
 // ====== MODAL & GIAO DIỆN CHUNG ======
 function getExtras() { try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } }
-function loadExtras() { data = [...DICTIONARY, ...getExtras()]; $('#total').textContent = data.length.toLocaleString('vi-VN'); render() }
-function openModal(id) { $(id).style.display = 'flex' }
-function closeModal(id) { $(id).style.display = 'none' }
+function loadExtras() { data = [...DICTIONARY, ...getExtras()]; $('#total').textContent = data.length.toLocaleString('vi-VN'); render(); }
+function openModal(id) { $(id).style.display = 'flex'; }
+function closeModal(id) { $(id).style.display = 'none'; }
 
 $$('.tab').forEach(b => b.onclick = () => {
   $$('.tab').forEach(x => x.classList.remove('active'));
@@ -198,17 +214,17 @@ $$('.tab').forEach(b => b.onclick = () => {
 });
 
 exact.onchange = render;
-$('#clear').onclick = () => { q.value = ''; render(); q.focus() };
+$('#clear').onclick = () => { q.value = ''; render(); q.focus(); };
 $('#loginBtn').onclick = () => openModal('#authModal');
 $('#ownerBtn').onclick = () => openModal('#ownerModal');
 $$('[data-close]').forEach(b => b.onclick = () => closeModal('#' + b.dataset.close));
-window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none' };
+window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
 
-function field(prefix, id) { return $(prefix + '_' + id).value.trim() }
+function field(prefix, id) { return $(prefix + '_' + id).value.trim(); }
 $('#ownerSave').onclick = () => {
   let x = { mong: field('#o', 'mong'), viet: field('#o', 'viet'), initial: field('#o', 'initial'), vowel: field('#o', 'vowel'), tone: field('#o', 'tone'), example: field('#o', 'example'), source: field('#o', 'source') };
   let msg = $('#ownerMsg');
-  if (!x.mong || !x.viet) { msg.textContent = 'Vui lòng nhập tiếng Mông và nghĩa.'; return }
+  if (!x.mong || !x.viet) { msg.textContent = 'Vui lòng nhập tiếng Mông và nghĩa.'; return; }
   let extras = getExtras();
   extras.push(x);
   localStorage.setItem('mongviet_owner_extra', JSON.stringify(extras));
