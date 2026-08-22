@@ -117,14 +117,12 @@ async function checkAuth() {
             $('#userStatus').style.color = '#0050b3';
           }
           if ($('#ownerBtn')) $('#ownerBtn').style.display = 'flex';
-          if ($('#upgradeBtn')) $('#upgradeBtn').style.display = 'none';
         } else if (profile.is_paid) {
           if ($('#userStatus')) {
             $('#userStatus').textContent = 'VIP Trọn đời';
             $('#userStatus').style.background = '#f6ffed';
             $('#userStatus').style.color = '#389e0d';
           }
-          if ($('#upgradeBtn')) $('#upgradeBtn').style.display = 'none';
         }
       }
       listenPayment(currentUser.id);
