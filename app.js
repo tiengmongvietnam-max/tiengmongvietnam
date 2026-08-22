@@ -1,5 +1,5 @@
 let data=[...DICTIONARY],mode='mv';
-const CONTRIBUTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwhL-hSGi0-HLrZAzvmUJnR08W7b6nz-bz9mslxH_4gSFDq8my8iGDKCt-ylcPKFcKu8w/exec'; // Đã dán URL Web App Google Apps Script
+const CONTRIBUTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwhL-hSGi0-HLrZAzvmUJnR08W7b6nz-bz9mslxH_4gSFDq8my8iGDKCt-ylcPKFcKu8w/exec';
 let recorder=null, audioChunks=[], audioBlob=null, audioUrl=null;
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const q=$('#q'),res=$('#results'),exact=$('#exact'),count=$('#count');
@@ -26,26 +26,24 @@ $('#ownerSave').onclick=()=>{let x={mong:field('#o','mong'),viet:field('#o','vie
 $('#exportData').onclick=()=>downloadJson(data,'tu-dien-mong-viet-4.0.json');
 $('#clearExtras').onclick=()=>{if(!confirm('Xóa toàn bộ từ do chủ sở hữu đã thêm trên thiết bị này? Dữ liệu gốc không bị xóa.'))return;localStorage.removeItem('mongviet_owner_extra');loadExtras();$('#ownerMsg').textContent='Đã xóa phần từ bổ sung trên thiết bị.'};
 function getPending(){try{return JSON.parse(localStorage.getItem('mongviet_pending')||'[]')}catch{return []}}
-$($('#submitContrib').onclick=async()=>{
+
+$('#submitContrib').onclick=async()=>{
  let msg=$('#contribMsg'); 
  let tiengMong = field('#c','mong');
  let tiengViet = field('#c','viet');
 
- // Bắt buộc phải có Tiếng Mông và Tiếng Việt
  if(!tiengMong || !tiengViet){
    msg.textContent='Vui lòng nhập tiếng Mông và nghĩa tiếng Việt.';
    return;
  }
  
- msg.textContent='⏳ Đang gửi đóng góp...';
+ msg.textContent='⏳ Đang gửi đóng góp... Vui lòng đợi.';
 
- // Xử lý file ghi âm nếu có
  let ghiAmData = "";
  if(audioBlob){ ghiAmData = await blobToDataURL(audioBlob); }
 
  if(CONTRIBUTION_ENDPOINT){
    try{
-     // Ghép dữ liệu để gửi lên Google Sheets (khớp với e.parameter của Thầy)
      let formData = new URLSearchParams();
      formData.append('tiengMong', tiengMong);
      formData.append('tiengViet', tiengViet);
@@ -54,7 +52,6 @@ $($('#submitContrib').onclick=async()=>{
      formData.append('thanh', field('#c','tone'));
      formData.append('viDu', field('#c','example'));
      
-     // Gộp tên người gửi và ghi chú
      let nguoi = field('#c','person');
      let note = field('#c','note');
      let thongTinNguoi = nguoi + (note ? " (Ghi chú: " + note + ")" : "");
@@ -63,26 +60,26 @@ $($('#submitContrib').onclick=async()=>{
 
      let r = await fetch(CONTRIBUTION_ENDPOINT, {
        method: 'POST',
-       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-       body: formData
+       body: formData,
+       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
      });
 
-     if(!r.ok) throw new Error('HTTP '+r.status);
      msg.textContent='✅ Đã gửi từ mới thẳng về máy chủ thành công!';
    } catch(e) {
      msg.textContent='⚠️ Có lỗi kết nối, chưa gửi được lên Google Sheets.';
+     console.error(e);
    }
  } else {
    msg.textContent='Chưa có link cấu hình máy chủ.';
  }
 
- // Làm trống các ô nhập liệu sau khi gửi xong
  ['mong','viet','initial','vowel','tone','example','note','person'].forEach(k=>$('#c_'+k).value=''); 
  resetRecorder();
 };
+
 function blobToDataURL(blob){return new Promise((resolve,reject)=>{let r=new FileReader();r.onloadend=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)})}
 function resetRecorder(){if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=null;audioBlob=null;audioChunks=[];$('#audioPreview').hidden=true;$('#audioPreview').removeAttribute('src');$('#playRec').disabled=true;$('#clearRec').disabled=true;$('#stopRec').disabled=true;$('#startRec').disabled=false;$('#recStatus').textContent='Chưa có bản ghi.'}
-$('#startRec').onclick=async()=>{try{let stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=e=>{if(e.data.size)audioChunks.push(e.data)};recorder.onstop=()=>{audioBlob=new Blob(audioChunks,{type:recorder.mimeType||'audio/webm'});audioUrl=URL.createObjectURL(audioBlob);$('#audioPreview').src=audioUrl;$('#audioPreview').hidden=false;$('#playRec').disabled=false;$('#clearRec').disabled=false;$('#recStatus').textContent='Đã ghi âm. Thầy/người đóng góp có thể nghe lại trước khi gửi.';stream.getTracks().forEach(t=>t.stop())};recorder.start();$('#startRec').disabled=true;$('#stopRec').disabled=false;$('#recStatus').textContent='🔴 Đang ghi âm...';}catch(e){$('#recStatus').textContent='Không mở được micro. Hãy cho phép trình duyệt sử dụng micro và mở website bằng HTTPS.'}};
+$('#startRec').onclick=async()=>{try{let stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=e=>{if(e.data.size)audioChunks.push(e.data)};recorder.onstop=()=>{audioBlob=new Blob(audioChunks,{type:recorder.mimeType||'audio/webm'});audioUrl=URL.createObjectURL(audioBlob);$('#audioPreview').src=audioUrl;$('#audioPreview').hidden=false;$('#playRec').disabled=false;$('#clearRec').disabled=false;$('#recStatus').textContent='Đã ghi âm. Có thể nghe lại trước khi gửi.';stream.getTracks().forEach(t=>t.stop())};recorder.start();$('#startRec').disabled=true;$('#stopRec').disabled=false;$('#recStatus').textContent='🔴 Đang ghi âm...';}catch(e){$('#recStatus').textContent='Không mở được micro. Hãy cho phép trình duyệt sử dụng micro và mở website bằng HTTPS.'}};
 $('#stopRec').onclick=()=>{if(recorder&&recorder.state!=='inactive')recorder.stop()};
 $('#playRec').onclick=()=>{$('#audioPreview').play()};
 $('#clearRec').onclick=()=>resetRecorder();
