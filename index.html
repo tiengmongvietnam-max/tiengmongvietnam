@@ -36,8 +36,13 @@
 </section>
 
 <section class="actions-grid">
-  <!-- Nút Admin chỉ hiển thị khi Thầy đăng nhập bằng tài khoản Admin -->
+  <!-- Nút Admin chỉ hiển thị khi đăng nhập bằng tài khoản Admin -->
   <button id="ownerBtn" class="action owner" style="display:none;">🔐 <span><b>Chủ sở hữu (Admin)</b><small>Thêm / quản lý từ vào hệ thống</small></span></button>
+  
+  <!-- Nút Đóng góp từ mới cho mọi người dùng -->
+  <button id="contribBtn" class="action contrib">✍️ <span><b>Đóng góp từ mới</b><small>Gửi bổ sung từ vựng và ví dụ câu</small></span></button>
+
+  <!-- Nút Nâng cấp VIP -->
   <button id="upgradeBtn" class="action contrib" style="background:#fff9e6; border-color:#ffe58f;">⭐ <span><b>Nâng cấp tài khoản VIP (10.000đ)</b><small>Mở khóa tra cứu vĩnh viễn không giới hạn</small></span></button>
 </section>
 
@@ -47,6 +52,26 @@
   <b>Phiên bản 4.2 Pro</b> · Dữ liệu gốc: <span id="total"></span> mục. Miễn phí 5 lượt tra cứu thử. Để sử dụng trọn đời, vui lòng đăng ký tài khoản và quét mã QR nâng cấp 10.000đ.
 </section>
 </main>
+
+<!-- Modal Đóng góp từ mới (Dành cho độc giả / người dùng) -->
+<div id="contribModal" class="modal"><div class="box">
+<button class="close" data-close="contribModal">×</button>
+<h2>✍️ Đóng góp từ mới</h2>
+<p class="note">Cảm ơn bạn đã chung tay xây dựng và hoàn thiện kho ngữ liệu Từ điển tiếng Mông.</p>
+<div class="grid2">
+<label>Tiếng Mông (*)<input id="c_mong" placeholder="Ví dụ: nyob zoo"></label>
+<label>Bản dịch tiếng Việt (*)<input id="c_viet" placeholder="Ví dụ: xin chào"></label>
+<label>Âm đầu<input id="c_initial" placeholder="Ví dụ: ny"></label>
+<label>Vần<input id="c_vowel" placeholder="Ví dụ: ob"></label>
+<label>Dấu thanh<input id="c_tone" placeholder="Ví dụ: không dấu"></label>
+<label>Ví dụ câu<input id="c_example" placeholder="Ví dụ: Nyob zoo sawv daws"></label>
+<label>Họ tên / Đơn vị đóng góp<input id="c_author" placeholder="Ví dụ: Thầy cô, Bạn đọc..."></label>
+</div>
+<div class="actions">
+  <button id="contribSave" class="primary">Gửi đóng góp</button>
+</div>
+<div id="contribMsg" class="msg"></div>
+</div></div>
 
 <!-- Modal Đăng nhập / Đăng ký -->
 <div id="authModal" class="modal"><div class="box" style="max-width:420px;">
@@ -76,7 +101,7 @@
 <div id="payWaiting" style="color:#667085; font-size:13px;">⏳ Đang chờ hệ thống ngân hàng xác nhận giao dịch...</div>
 </div></div>
 
-<!-- Owner modal -->
+<!-- Owner modal (Dành riêng cho Admin) -->
 <div id="ownerModal" class="modal"><div class="box">
 <button class="close" data-close="ownerModal">×</button><h2>🔐 Khu vực quản trị Admin</h2>
 <p class="note">Chỉ tài khoản Admin mới xem và thực hiện được các chức năng này.</p>
