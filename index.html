@@ -70,9 +70,10 @@
       <label>Ví dụ câu<input id="c_example" placeholder="Ví dụ: Nyob zoo sawv daws"></label>
       <label>Họ tên người đóng góp<input id="c_author" placeholder="Ví dụ: Thầy Năm..."></label>
       <label>Thu âm phát âm mẫu
-        <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
           <button type="button" id="btnRecordContrib" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Bấm để Thu âm</button>
-          <audio id="audioPreviewContrib" controls style="display:none; height:32px; flex:1;"></audio>
+          <button type="button" id="btnDeleteAudioContrib" style="display:none; padding:6px 10px; border-radius:6px; background:#fff1f0; color:#cf1322; border:1px solid #ffa39e; cursor:pointer;" title="Xóa bản thu âm này">🗑️ Xóa bản thu</button>
+          <audio id="audioPreviewContrib" controls style="display:none; height:32px; flex:1; min-width:140px;"></audio>
         </div>
       </label>
     </div>
@@ -137,9 +138,10 @@
         <label>Ví dụ câu<input id="o_example"></label>
         <label>Nguồn<input id="o_source"></label>
         <label>Ghi âm phát âm mẫu
-          <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
             <button type="button" id="btnRecordOwner" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Bấm để Thu âm</button>
-            <audio id="audioPreviewOwner" controls style="display:none; height:32px; flex:1;"></audio>
+            <button type="button" id="btnDeleteAudioOwner" style="display:none; padding:6px 10px; border-radius:6px; background:#fff1f0; color:#cf1322; border:1px solid #ffa39e; cursor:pointer;" title="Xóa bản thu âm này">🗑️ Xóa bản thu</button>
+            <audio id="audioPreviewOwner" controls style="display:none; height:32px; flex:1; min-width:140px;"></audio>
           </div>
         </label>
       </div>
