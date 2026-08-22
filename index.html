@@ -1,141 +1,172 @@
 <!doctype html>
 <html lang="vi">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Từ điển Mông – Việt | Phiên bản 4.2 Pro</title>
-<link rel="stylesheet" href="style.css">
-<!-- Nhúng thư viện Supabase JS -->
+<link rel="stylesheet" href="style.css?v=4.2">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<header><div class="wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-  <div>
-    <div class="tag">TỪ ĐIỂN TIẾNG MÔNG VIỆT NAM</div>
-    <h1>TỪ ĐIỂN MÔNG – VIỆT</h1>
-    <p>Tra cứu · Bản quyền học liệu · Quản lý trực tuyến</p>
-  </div>
-  <!-- Khu vực Đăng nhập / Trạng thái tài khoản -->
-  <div id="authSection" style="text-align:right;">
-    <button id="loginBtn" class="action" style="background:#fff; color:#143d59; font-weight:bold; cursor:pointer;">🔑 Đăng nhập / Đăng ký</button>
-    <div id="userInfo" style="display:none; color:#fff;">
-      <span id="userEmail" style="font-weight:bold; font-size:14px;"></span><br>
-      <span id="userStatus" style="font-size:13px; background:#fff; color:#117a55; padding:2px 8px; border-radius:10px; font-weight:bold;">Chưa nâng cấp</span>
-      <button id="logoutBtn" style="margin-left:8px; border:none; background:rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer;">Đăng xuất</button>
+<header>
+  <div class="wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <div class="tag">TỪ ĐIỂN TIẾNG MÔNG VIỆT NAM</div>
+      <h1>TỪ ĐIỂN MÔNG – VIỆT</h1>
+      <p>Tra cứu · Bản quyền học liệu · Quản lý trực tuyến</p>
+    </div>
+    <div id="authSection" style="text-align:right;">
+      <button id="loginBtn" class="action" style="background:#fff; color:#143d59; font-weight:bold; cursor:pointer;">🔑 Đăng nhập / Đăng ký</button>
+      <div id="userInfo" style="display:none; color:#fff;">
+        <span id="userEmail" style="font-weight:bold; font-size:14px;"></span><br>
+        <span id="userStatus" style="font-size:13px; background:#fff; color:#117a55; padding:2px 8px; border-radius:10px; font-weight:bold;">Chưa nâng cấp</span>
+        <button id="logoutBtn" style="margin-left:8px; border:none; background:rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer;">Đăng xuất</button>
+      </div>
     </div>
   </div>
-</div></header>
+</header>
 
 <main class="wrap">
-<section class="panel">
-  <div class="tabs">
-    <button class="tab active" data-mode="mv">Mông → Việt</button>
-    <button class="tab" data-mode="vm">Việt → Mông</button>
-  </div>
-  <div class="search"><input id="q" placeholder="Nhập tiếng Mông cần tra..." autofocus><button id="clear" title="Xóa">×</button></div>
-  <div class="tools"><label><input id="exact" type="checkbox"> Chỉ tìm chính xác</label><span id="count"></span></div>
-</section>
+  <section class="panel">
+    <div class="tabs">
+      <button class="tab active" data-mode="mv">Mông → Việt</button>
+      <button class="tab" data-mode="vm">Việt → Mông</button>
+    </div>
+    <div class="search">
+      <input id="q" placeholder="Nhập tiếng Mông cần tra..." autofocus>
+      <button id="clear" title="Xóa">×</button>
+    </div>
+    <div class="tools">
+      <label><input id="exact" type="checkbox"> Chỉ tìm chính xác</label>
+      <span id="count"></span>
+    </div>
+  </section>
 
-<section class="actions-grid">
-  <!-- Nút Admin -->
-  <button id="ownerBtn" class="action owner" style="display:none;">🔐 <span><b>Chủ sở hữu (Admin)</b><small>Thêm / quản lý / ghi âm từ mẫu</small></span></button>
-  
-  <!-- Nút Đóng góp từ mới -->
-  <button id="contribBtn" class="action contrib">✍️ <span><b>Đóng góp từ mới</b><small>Gửi bổ sung từ vựng & thu âm</small></span></button>
+  <section class="actions-grid">
+    <button id="ownerBtn" class="action owner" style="display:none;">🔐 <span><b>Chủ sở hữu (Admin)</b><small>Thêm từ & Duyệt đóng góp</small></span></button>
+    <button id="contribBtn" class="action contrib">✍️ <span><b>Đóng góp từ mới</b><small>Gửi bổ sung từ vựng & thu âm</small></span></button>
+    <button id="upgradeBtn" class="action contrib" style="background:#fff9e6; border-color:#ffe58f;">⭐ <span><b>Nâng cấp tài khoản VIP (10.000đ)</b><small>Mở khóa tra cứu vĩnh viễn không giới hạn</small></span></button>
+  </section>
 
-  <!-- Nút Nâng cấp VIP -->
-  <button id="upgradeBtn" class="action contrib" style="background:#fff9e6; border-color:#ffe58f;">⭐ <span><b>Nâng cấp tài khoản VIP (10.000đ)</b><small>Mở khóa tra cứu vĩnh viễn không giới hạn</small></span></button>
-</section>
+  <section id="results"></section>
 
-<section id="results"></section>
-
-<section class="info">
-  <b>Phiên bản 4.2 Pro</b> · Dữ liệu gốc: <span id="total"></span> mục. Miễn phí 5 lượt tra cứu thử. Để sử dụng trọn đời, vui lòng đăng ký tài khoản và quét mã QR nâng cấp 10.000đ.
-</section>
+  <section class="info">
+    <b>Phiên bản 4.2 Pro</b> · Dữ liệu gốc: <span id="total"></span> mục. Miễn phí 5 lượt tra cứu thử. Để sử dụng trọn đời, vui lòng đăng ký tài khoản và quét mã QR nâng cấp 10.000đ.
+  </section>
 </main>
 
 <!-- Modal Đóng góp từ mới -->
-<div id="contribModal" class="modal"><div class="box">
-<button class="close" data-close="contribModal">×</button>
-<h2>✍️ Đóng góp từ mới & Phát âm</h2>
-<p class="note">Chung tay xây dựng kho ngữ liệu và thu âm phát âm tiếng Mông bản địa.</p>
-<div class="grid2">
-<label>Tiếng Mông (*)<input id="c_mong" placeholder="Ví dụ: nyob zoo"></label>
-<label>Bản dịch tiếng Việt (*)<input id="c_viet" placeholder="Ví dụ: xin chào"></label>
-<label>Âm đầu<input id="c_initial" placeholder="Ví dụ: ny"></label>
-<label>Vần<input id="c_vowel" placeholder="Ví dụ: ob"></label>
-<label>Dấu thanh<input id="c_tone" placeholder="Ví dụ: không dấu"></label>
-<label>Ví dụ câu<input id="c_example" placeholder="Ví dụ: Nyob zoo sawv daws"></label>
-<label>Họ tên người đóng góp<input id="c_author" placeholder="Ví dụ: Thầy Năm..."></label>
-<label>Thu âm phát âm mẫu
-  <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
-    <button type="button" id="btnRecordContrib" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Ghi âm</button>
-    <audio id="audioPreviewContrib" controls style="display:none; height:32px; flex:1;"></audio>
+<div id="contribModal" class="modal">
+  <div class="box">
+    <button class="close" data-close="contribModal">×</button>
+    <h2>✍️ Đóng góp từ mới & Phát âm</h2>
+    <p class="note">Chung tay xây dựng kho ngữ liệu và thu âm phát âm tiếng Mông bản địa.</p>
+    <div class="grid2">
+      <label>Tiếng Mông (*)<input id="c_mong" placeholder="Ví dụ: nyob zoo"></label>
+      <label>Bản dịch tiếng Việt (*)<input id="c_viet" placeholder="Ví dụ: xin chào"></label>
+      <label>Âm đầu<input id="c_initial" placeholder="Ví dụ: ny"></label>
+      <label>Vần<input id="c_vowel" placeholder="Ví dụ: ob"></label>
+      <label>Dấu thanh<input id="c_tone" placeholder="Ví dụ: không dấu"></label>
+      <label>Ví dụ câu<input id="c_example" placeholder="Ví dụ: Nyob zoo sawv daws"></label>
+      <label>Họ tên người đóng góp<input id="c_author" placeholder="Ví dụ: Thầy Năm..."></label>
+      <label>Thu âm phát âm mẫu
+        <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
+          <button type="button" id="btnRecordContrib" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Bấm để Thu âm</button>
+          <audio id="audioPreviewContrib" controls style="display:none; height:32px; flex:1;"></audio>
+        </div>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="contribSave" class="primary">Gửi đóng góp</button>
+    </div>
+    <div id="contribMsg" class="msg"></div>
   </div>
-</label>
 </div>
-<div class="actions">
-  <button id="contribSave" class="primary">Gửi đóng góp</button>
-</div>
-<div id="contribMsg" class="msg"></div>
-</div></div>
 
 <!-- Modal Đăng nhập / Đăng ký -->
-<div id="authModal" class="modal"><div class="box" style="max-width:420px;">
-<button class="close" data-close="authModal">×</button>
-<h2>🔑 Tài khoản</h2>
-<p class="note">Nhập Email và mật khẩu để Đăng nhập hoặc Đăng ký tài khoản tra cứu.</p>
-<div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
-  <label>Email: <input id="auth_email" type="email" placeholder="thaynam@gmail.com"></label>
-  <label>Mật khẩu: <input id="auth_pass" type="password" placeholder="Tối thiểu 6 ký tự"></label>
-  <div class="actions" style="margin-top:10px;">
-    <button id="btnDoLogin" class="primary" style="flex:1;">Đăng nhập</button>
-    <button id="btnDoSignUp" style="flex:1;">Đăng ký</button>
+<div id="authModal" class="modal">
+  <div class="box" style="max-width:420px;">
+    <button class="close" data-close="authModal">×</button>
+    <h2>🔑 Tài khoản</h2>
+    <p class="note">Nhập Email và mật khẩu để Đăng nhập hoặc Đăng ký tài khoản tra cứu.</p>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+      <label>Email: <input id="auth_email" type="email" placeholder="thaynam@gmail.com"></label>
+      <label>Mật khẩu: <input id="auth_pass" type="password" placeholder="Tối thiểu 6 ký tự"></label>
+      <div class="actions" style="margin-top:10px;">
+        <button id="btnDoLogin" class="primary" style="flex:1;">Đăng nhập</button>
+        <button id="btnDoSignUp" style="flex:1;">Đăng ký</button>
+      </div>
+      <div id="authMsg" class="msg"></div>
+    </div>
   </div>
-  <div id="authMsg" class="msg"></div>
 </div>
-</div></div>
 
 <!-- Modal Thanh toán VietQR -->
-<div id="payModal" class="modal"><div class="box" style="max-width:460px; text-align:center;">
-<button class="close" data-close="payModal">×</button>
-<h2 style="color:#d48806; margin-right:0;">⭐ Nâng cấp VIP Tra cứu</h2>
-<p style="color:#555; font-size:14px; margin-top:6px;">Quét mã VietQR dưới đây để kích hoạt tài khoản vĩnh viễn (Phí: <b>10.000đ</b>).</p>
-<div style="margin:16px 0; background:#f5f7fb; padding:15px; border-radius:12px; border:1px solid #dbe2ea;">
-  <img id="qrImg" src="" alt="VietQR" style="max-width:260px; width:100%; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-  <p id="qrNotice" style="margin-top:10px; font-size:14px; font-weight:bold; color:#1769aa;">Hệ thống tự động kích hoạt ngay sau khi nhận tiền!</p>
-</div>
-<div id="payWaiting" style="color:#667085; font-size:13px;">⏳ Đang chờ hệ thống ngân hàng xác nhận giao dịch...</div>
-</div></div>
-
-<!-- Owner modal (Admin & Thu âm mẫu) -->
-<div id="ownerModal" class="modal"><div class="box">
-<button class="close" data-close="ownerModal">×</button><h2>🔐 Khu vực quản trị Admin</h2>
-<p class="note">Chỉ tài khoản Admin mới xem và thực hiện được các chức năng này.</p>
-<div class="grid2">
-<label>Tiếng Mông<input id="o_mong"></label>
-<label>Bản dịch tiếng Việt<input id="o_viet"></label>
-<label>Âm đầu<input id="o_initial"></label>
-<label>Vần<input id="o_vowel"></label>
-<label>Dấu thanh<input id="o_tone"></label>
-<label>Ví dụ câu<input id="o_example"></label>
-<label>Nguồn<input id="o_source"></label>
-<label>Ghi âm phát âm mẫu
-  <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
-    <button type="button" id="btnRecordOwner" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Bắt đầu ghi âm</button>
-    <audio id="audioPreviewOwner" controls style="display:none; height:32px; flex:1;"></audio>
+<div id="payModal" class="modal">
+  <div class="box" style="max-width:460px; text-align:center;">
+    <button class="close" data-close="payModal">×</button>
+    <h2 style="color:#d48806; margin-right:0;">⭐ Nâng cấp VIP Tra cứu</h2>
+    <p style="color:#555; font-size:14px; margin-top:6px;">Quét mã VietQR dưới đây để kích hoạt tài khoản vĩnh viễn (Phí: <b>10.000đ</b>).</p>
+    <div style="margin:16px 0; background:#f5f7fb; padding:15px; border-radius:12px; border:1px solid #dbe2ea;">
+      <img id="qrImg" src="" alt="VietQR" style="max-width:260px; width:100%; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+      <p id="qrNotice" style="margin-top:10px; font-size:14px; font-weight:bold; color:#1769aa;">Hệ thống tự động kích hoạt ngay sau khi nhận tiền!</p>
+    </div>
+    <div id="payWaiting" style="color:#667085; font-size:13px;">⏳ Đang chờ hệ thống ngân hàng xác nhận giao dịch...</div>
   </div>
-</label>
 </div>
-<div class="actions">
-  <button id="ownerSave" class="primary">Lưu từ mới & Âm thanh</button>
-  <button id="exportData">Xuất dữ liệu JSON</button>
-  <button id="clearExtras" class="danger">Xóa từ bổ sung</button>
-</div>
-<div id="ownerMsg" class="msg"></div>
-</div></div>
 
-<footer><div>Từ điển Mông – Việt 4.2 Pro</div><div id="year"></div></footer>
+<!-- Owner modal (Admin, Ghi âm & Phê duyệt) -->
+<div id="ownerModal" class="modal">
+  <div class="box" style="max-width:680px;">
+    <button class="close" data-close="ownerModal">×</button>
+    <h2>🔐 Khu vực quản trị Admin</h2>
+    
+    <div style="display:flex; gap:10px; margin:15px 0 10px 0; border-bottom:1px solid #e8e8e8; padding-bottom:8px;">
+      <button id="tabAddDirect" type="button" class="tab active" style="padding:6px 14px; font-size:14px;">➕ Thêm từ trực tiếp</button>
+      <button id="tabReviewContrib" type="button" class="tab" style="padding:6px 14px; font-size:14px;">📥 Chờ duyệt (<span id="pendingCount">0</span>)</button>
+    </div>
+
+    <!-- Tab 1: Thêm trực tiếp -->
+    <div id="sectionAddDirect">
+      <div class="grid2">
+        <label>Tiếng Mông<input id="o_mong"></label>
+        <label>Bản dịch tiếng Việt<input id="o_viet"></label>
+        <label>Âm đầu<input id="o_initial"></label>
+        <label>Vần<input id="o_vowel"></label>
+        <label>Dấu thanh<input id="o_tone"></label>
+        <label>Ví dụ câu<input id="o_example"></label>
+        <label>Nguồn<input id="o_source"></label>
+        <label>Ghi âm phát âm mẫu
+          <div style="display:flex; gap:8px; align-items:center; margin-top:5px;">
+            <button type="button" id="btnRecordOwner" style="padding:6px 12px; border-radius:6px; background:#e6f7ff; color:#0050b3; border:1px solid #91d5ff; cursor:pointer;">🎙️ Bấm để Thu âm</button>
+            <audio id="audioPreviewOwner" controls style="display:none; height:32px; flex:1;"></audio>
+          </div>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="ownerSave" class="primary">Lưu từ mới & Âm thanh</button>
+        <button id="exportData">Xuất JSON</button>
+        <button id="clearExtras" class="danger">Xóa từ đã thêm</button>
+      </div>
+      <div id="ownerMsg" class="msg"></div>
+    </div>
+
+    <!-- Tab 2: Danh sách chờ duyệt -->
+    <div id="sectionReviewContrib" style="display:none;">
+      <div id="contribList" style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px;">
+        <div style="text-align:center; color:#888; padding:20px;">Đang tải danh sách chờ duyệt...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div>Từ điển Mông – Việt 4.2 Pro</div>
+  <div id="year"></div>
+</footer>
+
 <script src="data.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=4.2"></script>
 </body>
 </html>
