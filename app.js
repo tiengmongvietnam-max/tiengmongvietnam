@@ -1,88 +1,234 @@
-let data=[...DICTIONARY],mode='mv';
-const CONTRIBUTION_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwhL-hSGi0-HLrZAzvmUJnR08W7b6nz-bz9mslxH_4gSFDq8my8iGDKCt-ylcPKFcKu8w/exec';
-let recorder=null, audioChunks=[], audioBlob=null, audioUrl=null;
-const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
-const q=$('#q'),res=$('#results'),exact=$('#exact'),count=$('#count');
-const norm=s=>(s||'').normalize('NFC').trim().toLocaleLowerCase('vi-VN');
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function hi(s,n){let a=norm(s),b=norm(n),i=a.indexOf(b);if(i<0)return esc(s);return esc(s.slice(0,i))+'<span class="mark">'+esc(s.slice(i,i+n.length))+'</span>'+esc(s.slice(i+n.length));}
-function render(){let n=norm(q.value);if(!n){count.textContent='';res.innerHTML='<div class="empty">Nhập từ cần tra cứu để bắt đầu.</div>';return}
- let f=data.filter(x=>{let v=norm(mode==='mv'?x.mong:x.viet);return exact.checked?v===n:v.includes(n)});
- f.sort((a,b)=>{let A=norm(mode==='mv'?a.mong:a.viet),B=norm(mode==='mv'?b.mong:b.viet);return (A===n?0:A.startsWith(n)?1:2)-(B===n?0:B.startsWith(n)?1:2)||A.localeCompare(B,'vi')});
- count.textContent=`Tìm thấy ${f.length} kết quả`;
- res.innerHTML=f.slice(0,100).map(x=>`<article class="card"><div class="term">${hi(mode==='mv'?x.mong:x.viet,q.value)}</div><div class="meaning">${esc(mode==='mv'?x.viet:x.mong)}</div>${x.example?`<div class="example">Ví dụ: ${esc(x.example)}</div>`:''}</article>`).join('')||'<div class="empty">Không tìm thấy kết quả.</div>';
+// ====== CẤU HÌNH NGÂN HÀNG & SUPABASE ======
+const BANK_ID = "MB"; // Thay bằng mã ngân hàng của Thầy (MB, VCB, BIDV, ICB...)
+const ACCOUNT_NO = "0569999956789"; // Thay bằng Số tài khoản của Thầy
+const ACCOUNT_NAME = "TRIEU XUAN NAM"; 
+const VIP_PRICE = 10000;
+
+// Thông tin Supabase
+const SUPABASE_URL = 'https://emplcjjqcwpundaqklci.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcGxjampxY3dwdW5kYXFrbGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTEyNjAsImV4cCI6MjEwMjk2NzI2MH0.lXf9toe-FO_eeB0MtIIeyWf7f1E0TtKoRsCXj-SfvyM';
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+// Biến lưu trữ trạng thái
+let currentUser = null;
+let userProfile = { is_paid: false, role: 'user' };
+let trialSearchCount = parseInt(localStorage.getItem('trial_search_count') || '0');
+
+let data = [...DICTIONARY], mode = 'mv';
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const q = $('#q'), res = $('#results'), exact = $('#exact'), count = $('#count');
+
+const norm = s => (s || '').normalize('NFC').trim().toLocaleLowerCase('vi-VN');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+function hi(s, n) {
+  let a = norm(s), b = norm(n), i = a.indexOf(b);
+  if (i < 0) return esc(s);
+  return esc(s.slice(0, i)) + '<span class="mark">' + esc(s.slice(i, i + n.length)) + '</span>' + esc(s.slice(i + n.length));
 }
-function getExtras(){try{return JSON.parse(localStorage.getItem('mongviet_owner_extra')||'[]')}catch{return []}}
-function loadExtras(){data=[...DICTIONARY,...getExtras()];$('#total').textContent=data.length.toLocaleString('vi-VN');render()}
-function openModal(id){$(id).style.display='flex'}
-function closeModal(id){$(id).style.display='none'}
-$$('.tab').forEach(b=>b.onclick=()=>{ $$('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');mode=b.dataset.mode;q.placeholder=mode==='mv'?'Nhập tiếng Mông cần tra...':'Nhập nghĩa tiếng Việt cần tra...';q.value='';render();});
-q.oninput=render;exact.onchange=render;$('#clear').onclick=()=>{q.value='';render();q.focus()};
-$('#ownerBtn').onclick=()=>openModal('#ownerModal');$('#contribBtn').onclick=()=>openModal('#contribModal');
-$$('[data-close]').forEach(b=>b.onclick=()=>closeModal('#'+b.dataset.close));
-window.onclick=e=>{if(e.target.classList.contains('modal'))e.target.style.display='none'};
-function field(prefix,id){return $(prefix+'_'+id).value.trim()}
-$('#ownerSave').onclick=()=>{let x={mong:field('#o','mong'),viet:field('#o','viet'),initial:field('#o','initial'),vowel:field('#o','vowel'),tone:field('#o','tone'),example:field('#o','example'),source:field('#o','source')};let msg=$('#ownerMsg');if(!x.mong||!x.viet){msg.textContent='Vui lòng nhập tiếng Mông và bản dịch tiếng Việt.';return}if(data.some(d=>norm(d.mong)===norm(x.mong)&&norm(d.viet)===norm(x.viet))){msg.textContent='Từ và nghĩa này đã có trong từ điển.';return}let extras=getExtras();extras.push(x);localStorage.setItem('mongviet_owner_extra',JSON.stringify(extras));['mong','viet','initial','vowel','tone','example','source'].forEach(k=>$('#o_'+k).value='');msg.textContent='Đã thêm vào từ điển trên thiết bị này.';loadExtras()};
-$('#exportData').onclick=()=>downloadJson(data,'tu-dien-mong-viet-4.0.json');
-$('#clearExtras').onclick=()=>{if(!confirm('Xóa toàn bộ từ do chủ sở hữu đã thêm trên thiết bị này? Dữ liệu gốc không bị xóa.'))return;localStorage.removeItem('mongviet_owner_extra');loadExtras();$('#ownerMsg').textContent='Đã xóa phần từ bổ sung trên thiết bị.'};
-function getPending(){try{return JSON.parse(localStorage.getItem('mongviet_pending')||'[]')}catch{return []}}
 
-$('#submitContrib').onclick=async()=>{
- let msg=$('#contribMsg'); 
- let tiengMong = field('#c','mong');
- let tiengViet = field('#c','viet');
+// ====== LOGIC TRA CỨU & KIỂM TRA PHÂN QUYỀN ======
+function render() {
+  let n = norm(q.value);
+  if (!n) {
+    count.textContent = '';
+    res.innerHTML = '<div class="empty">Nhập từ cần tra cứu để bắt đầu.</div>';
+    return;
+  }
 
- if(!tiengMong || !tiengViet){
-   msg.textContent='Vui lòng nhập tiếng Mông và nghĩa tiếng Việt.';
-   return;
- }
- 
- msg.textContent='⏳ Đang gửi đóng góp... Vui lòng đợi.';
+  const isVip = userProfile.is_paid || userProfile.role === 'admin';
 
- let ghiAmData = "";
- if(audioBlob){ ghiAmData = await blobToDataURL(audioBlob); }
+  if (!isVip) {
+    if (trialSearchCount >= 5) {
+      count.textContent = '';
+      res.innerHTML = `
+        <div class="empty" style="background:#fffbe6; border:1px dashed #ffe58f; padding:30px; border-radius:12px;">
+          <h3 style="color:#d48806; margin-top:0;">⚠️ Đã hết 5 lượt tra cứu miễn phí!</h3>
+          <p>Để tiếp tục tra cứu từ điển không giới hạn, vui lòng nâng cấp tài khoản vĩnh viễn chỉ với <b>10.000đ</b>.</p>
+          <button onclick="handleUpgradeClick()" class="primary" style="padding:10px 20px; font-size:15px; border-radius:8px; background:#1769aa; color:#fff; border:none; cursor:pointer;">⭐ Quét mã QR Nâng cấp ngay</button>
+        </div>`;
+      return;
+    }
+  }
 
- if(CONTRIBUTION_ENDPOINT){
-   try{
-     let formData = new URLSearchParams();
-     formData.append('tiengMong', tiengMong);
-     formData.append('tiengViet', tiengViet);
-     formData.append('amDau', field('#c','initial'));
-     formData.append('van', field('#c','vowel'));
-     formData.append('thanh', field('#c','tone'));
-     formData.append('viDu', field('#c','example'));
-     
-     let nguoi = field('#c','person');
-     let note = field('#c','note');
-     let thongTinNguoi = nguoi + (note ? " (Ghi chú: " + note + ")" : "");
-     formData.append('nguoiDongGop', thongTinNguoi || "Ẩn danh");
-     formData.append('ghiAm', ghiAmData);
+  let f = data.filter(x => {
+    let v = norm(mode === 'mv' ? x.mong : x.viet);
+    return exact.checked ? v === n : v.includes(n);
+  });
 
-     let r = await fetch(CONTRIBUTION_ENDPOINT, {
-       method: 'POST',
-       body: formData,
-       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-     });
+  f.sort((a, b) => {
+    let A = norm(mode === 'mv' ? a.mong : a.viet), B = norm(mode === 'mv' ? b.viet : b.viet);
+    return (A === n ? 0 : A.startsWith(n) ? 1 : 2) - (B === n ? 0 : B.startsWith(n) ? 1 : 2) || A.localeCompare(B, 'vi');
+  });
 
-     msg.textContent='✅ Đã gửi từ mới thẳng về máy chủ thành công!';
-   } catch(e) {
-     msg.textContent='⚠️ Có lỗi kết nối, chưa gửi được lên Google Sheets.';
-     console.error(e);
-   }
- } else {
-   msg.textContent='Chưa có link cấu hình máy chủ.';
- }
+  count.textContent = `Tìm thấy ${f.length} kết quả ${!isVip ? `(Đã dùng ${trialSearchCount}/5 lượt thử)` : '· Tài khoản VIP'}`;
+  res.innerHTML = f.slice(0, 100).map(x => `
+    <article class="card">
+      <div class="term">${hi(mode === 'mv' ? x.mong : x.viet, q.value)}</div>
+      <div class="meaning">${esc(mode === 'mv' ? x.viet : x.mong)}</div>
+      ${x.example ? `<div class="example">Ví dụ: ${esc(x.example)}</div>` : ''}
+    </article>
+  `).join('') || '<div class="empty">Không tìm thấy kết quả.</div>';
+}
 
- ['mong','viet','initial','vowel','tone','example','note','person'].forEach(k=>$('#c_'+k).value=''); 
- resetRecorder();
+let searchTimeout = null;
+q.oninput = () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    if (q.value.trim().length > 1 && !userProfile.is_paid && userProfile.role !== 'admin') {
+      trialSearchCount++;
+      localStorage.setItem('trial_search_count', trialSearchCount);
+    }
+    render();
+  }, 400);
 };
 
-function blobToDataURL(blob){return new Promise((resolve,reject)=>{let r=new FileReader();r.onloadend=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)})}
-function resetRecorder(){if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=null;audioBlob=null;audioChunks=[];$('#audioPreview').hidden=true;$('#audioPreview').removeAttribute('src');$('#playRec').disabled=true;$('#clearRec').disabled=true;$('#stopRec').disabled=true;$('#startRec').disabled=false;$('#recStatus').textContent='Chưa có bản ghi.'}
-$('#startRec').onclick=async()=>{try{let stream=await navigator.mediaDevices.getUserMedia({audio:true});audioChunks=[];recorder=new MediaRecorder(stream);recorder.ondataavailable=e=>{if(e.data.size)audioChunks.push(e.data)};recorder.onstop=()=>{audioBlob=new Blob(audioChunks,{type:recorder.mimeType||'audio/webm'});audioUrl=URL.createObjectURL(audioBlob);$('#audioPreview').src=audioUrl;$('#audioPreview').hidden=false;$('#playRec').disabled=false;$('#clearRec').disabled=false;$('#recStatus').textContent='Đã ghi âm. Có thể nghe lại trước khi gửi.';stream.getTracks().forEach(t=>t.stop())};recorder.start();$('#startRec').disabled=true;$('#stopRec').disabled=false;$('#recStatus').textContent='🔴 Đang ghi âm...';}catch(e){$('#recStatus').textContent='Không mở được micro. Hãy cho phép trình duyệt sử dụng micro và mở website bằng HTTPS.'}};
-$('#stopRec').onclick=()=>{if(recorder&&recorder.state!=='inactive')recorder.stop()};
-$('#playRec').onclick=()=>{$('#audioPreview').play()};
-$('#clearRec').onclick=()=>resetRecorder();
-$('#downloadPending').onclick=()=>{let p=getPending();if(!p.length){$('#contribMsg').textContent='Chưa có phiếu đóng góp nào trên thiết bị này.';return}downloadJson(p,'cac-phieu-dong-gop-mong-viet.json');$('#contribMsg').textContent=`Đã xuất ${p.length} phiếu đóng góp.`};
-function downloadJson(obj,name){let blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),500)}
-$('#year').textContent='2026';loadExtras();
+// ====== HỆ THỐNG XÁC THỰC (AUTH) ======
+async function checkAuth() {
+  if (!supabase) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session && session.user) {
+    currentUser = session.user;
+    $('#loginBtn').style.display = 'none';
+    $('#userInfo').style.display = 'block';
+    $('#userEmail').textContent = currentUser.email;
+
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (profile) {
+      userProfile = profile;
+      if (profile.role === 'admin') {
+        $('#userStatus').textContent = 'Quản trị viên (Admin)';
+        $('#userStatus').style.background = '#e6f7ff';
+        $('#userStatus').style.color = '#0050b3';
+        $('#ownerBtn').style.display = 'flex';
+      } else if (profile.is_paid) {
+        $('#userStatus').textContent = 'VIP Trọn đời';
+        $('#userStatus').style.background = '#f6ffed';
+        $('#userStatus').style.color = '#389e0d';
+        $('#upgradeBtn').style.display = 'none';
+      }
+    }
+    listenPayment(currentUser.id);
+  } else {
+    currentUser = null;
+    userProfile = { is_paid: false, role: 'user' };
+    $('#loginBtn').style.display = 'block';
+    $('#userInfo').style.display = 'none';
+    $('#ownerBtn').style.display = 'none';
+  }
+}
+
+// Đăng ký
+$('#btnDoSignUp').onclick = async () => {
+  const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
+  const msg = $('#authMsg');
+  if (!email || password.length < 6) return msg.textContent = 'Vui lòng nhập email và mật khẩu >= 6 ký tự!';
+  msg.textContent = 'Đang xử lý đăng ký...';
+  
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) return msg.textContent = error.message;
+  
+  if (data.user) {
+    await supabase.from('profiles').insert([{ id: data.user.id, email: data.user.email, role: 'user', is_paid: false }]);
+  }
+  msg.textContent = 'Đăng ký thành công! Đang tải lại...';
+  setTimeout(() => location.reload(), 1000);
+};
+
+// Đăng nhập
+$('#btnDoLogin').onclick = async () => {
+  const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
+  const msg = $('#authMsg');
+  msg.textContent = 'Đang đăng nhập...';
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return msg.textContent = 'Sai tài khoản hoặc mật khẩu!';
+  location.reload();
+};
+
+// Đăng xuất
+$('#logoutBtn').onclick = async () => {
+  await supabase.auth.signOut();
+  location.reload();
+};
+
+// ====== MÃ VIETQR VÀ TỰ ĐỘNG KÍCH HOẠT ======
+function handleUpgradeClick() {
+  if (!currentUser) {
+    alert("Vui lòng đăng nhập hoặc đăng ký tài khoản trước khi quét mã nâng cấp!");
+    openModal('#authModal');
+    return;
+  }
+  const memo = 'TD' + currentUser.id.slice(-6).toUpperCase();
+  const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${VIP_PRICE}&addInfo=${memo}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+  
+  $('#qrImg').src = qrUrl;
+  $('#qrNotice').innerHTML = `Số tiền: <b>10.000đ</b><br>Nội dung bắt buộc: <span style="color:#d4380d; background:#fff2e8; padding:2px 6px; border-radius:4px;">${memo}</span>`;
+  openModal('#payModal');
+}
+
+$('#upgradeBtn').onclick = handleUpgradeClick;
+
+function listenPayment(userId) {
+  if (!supabase) return;
+  supabase
+    .channel('pay_check')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, payload => {
+      if (payload.new.is_paid) {
+        closeModal('#payModal');
+        alert("🎉 Chúc mừng! Tài khoản của bạn đã được kích hoạt VIP trọn đời thành công!");
+        location.reload();
+      }
+    })
+    .subscribe();
+}
+
+// ====== MODAL & GIAO DIỆN CHUNG ======
+function getExtras() { try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } }
+function loadExtras() { data = [...DICTIONARY, ...getExtras()]; $('#total').textContent = data.length.toLocaleString('vi-VN'); render() }
+function openModal(id) { $(id).style.display = 'flex' }
+function closeModal(id) { $(id).style.display = 'none' }
+
+$$('.tab').forEach(b => b.onclick = () => {
+  $$('.tab').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  mode = b.dataset.mode;
+  q.placeholder = mode === 'mv' ? 'Nhập tiếng Mông cần tra...' : 'Nhập nghĩa tiếng Việt cần tra...';
+  q.value = '';
+  render();
+});
+
+exact.onchange = render;
+$('#clear').onclick = () => { q.value = ''; render(); q.focus() };
+$('#loginBtn').onclick = () => openModal('#authModal');
+$('#ownerBtn').onclick = () => openModal('#ownerModal');
+$$('[data-close]').forEach(b => b.onclick = () => closeModal('#' + b.dataset.close));
+window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none' };
+
+function field(prefix, id) { return $(prefix + '_' + id).value.trim() }
+$('#ownerSave').onclick = () => {
+  let x = { mong: field('#o', 'mong'), viet: field('#o', 'viet'), initial: field('#o', 'initial'), vowel: field('#o', 'vowel'), tone: field('#o', 'tone'), example: field('#o', 'example'), source: field('#o', 'source') };
+  let msg = $('#ownerMsg');
+  if (!x.mong || !x.viet) { msg.textContent = 'Vui lòng nhập tiếng Mông và nghĩa.'; return }
+  let extras = getExtras();
+  extras.push(x);
+  localStorage.setItem('mongviet_owner_extra', JSON.stringify(extras));
+  ['mong', 'viet', 'initial', 'vowel', 'tone', 'example', 'source'].forEach(k => $('#o_' + k).value = '');
+  msg.textContent = 'Đã thêm từ mới vào hệ thống!';
+  loadExtras();
+};
+
+$('#exportData').onclick = () => {
+  let blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  let url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'tu-dien-mong-viet.json'; a.click();
+};
+
+$('#clearExtras').onclick = () => {
+  if (!confirm('Xóa từ đã thêm?')) return;
+  localStorage.removeItem('mongviet_owner_extra');
+  loadExtras();
+};
+
+$('#year').textContent = '2026';
+loadExtras();
+checkAuth();
