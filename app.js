@@ -239,10 +239,31 @@ if (exact) exact.onchange = render;
 if ($('#clear')) $('#clear').onclick = () => { if (q) { q.value = ''; render(); q.focus(); } };
 if ($('#loginBtn')) $('#loginBtn').onclick = () => openModal('#authModal');
 if ($('#ownerBtn')) $('#ownerBtn').onclick = () => openModal('#ownerModal');
+if ($('#contribBtn')) $('#contribBtn').onclick = () => openModal('#contribModal');
 $$('[data-close]').forEach(b => b.onclick = () => closeModal('#' + b.dataset.close));
 window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
 
 function field(prefix, id) { return $(prefix + '_' + id) ? $(prefix + '_' + id).value.trim() : ''; }
+
+// Xử lý gửi Đóng góp từ mới của bạn đọc
+if ($('#contribSave')) {
+  $('#contribSave').onclick = () => {
+    let mong = field('#c', 'mong'), viet = field('#c', 'viet');
+    let msg = $('#contribMsg');
+    if (!mong || !viet) {
+      if (msg) msg.textContent = 'Vui lòng nhập đầy đủ tiếng Mông và nghĩa tiếng Việt.';
+      return;
+    }
+    if (msg) {
+      msg.style.color = '#389e0d';
+      msg.textContent = '🎉 Cảm ơn bạn! Đóng góp từ vựng của bạn đã được ghi nhận và gửi tới Ban quản trị.';
+    }
+    ['mong', 'viet', 'initial', 'vowel', 'tone', 'example', 'author'].forEach(k => { if ($('#c_' + k)) $('#c_' + k).value = ''; });
+    setTimeout(() => { closeModal('#contribModal'); if (msg) msg.textContent = ''; }, 2500);
+  };
+}
+
+// Xử lý lưu từ của Admin
 if ($('#ownerSave')) {
   $('#ownerSave').onclick = () => {
     let x = { mong: field('#o', 'mong'), viet: field('#o', 'viet'), initial: field('#o', 'initial'), vowel: field('#o', 'vowel'), tone: field('#o', 'tone'), example: field('#o', 'example'), source: field('#o', 'source') };
