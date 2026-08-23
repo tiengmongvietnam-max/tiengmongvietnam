@@ -19,6 +19,7 @@ try {
 let currentUser = null;
 let userProfile = { is_paid: false, role: 'user' };
 let trialSearchCount = parseInt(localStorage.getItem('trial_search_count') || '0');
+let checkPaymentInterval = null;
 
 let data = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY] : [];
 let mode = 'mv';
@@ -142,7 +143,6 @@ async function checkAuth() {
           }
         }
       }
-      listenPayment(currentUser.id);
     } else {
       currentUser = null;
       userProfile = { is_paid: false, role: 'user' };
@@ -193,39 +193,77 @@ if ($('#logoutBtn')) {
   };
 }
 
+// ====== NÂNG CẤP VIP & TỰ ĐỘNG KÍCH HOẠT (CHÍNH XÁC) ======
 function handleUpgradeClick() {
   if (!currentUser) {
     alert("Vui lòng đăng nhập hoặc đăng ký tài khoản trước khi quét mã nâng cấp!");
     openModal('#authModal');
     return;
   }
-  const memo = 'TD' + currentUser.id.slice(-6).toUpperCase();
+
+  // Cú pháp nội dung chuẩn: TD + 8 ký tự đầu của User ID
+  const userCode = currentUser.id.replace(/-/g, '').slice(0, 8).toUpperCase();
+  const memo = 'TD' + userCode;
   const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${VIP_PRICE}&addInfo=${memo}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
   
   if ($('#qrImg')) $('#qrImg').src = qrUrl;
   if ($('#qrNotice')) {
-    $('#qrNotice').innerHTML = `Số tiền: <b>10.000đ</b><br>Nội dung bắt buộc: <span style="color:#d4380d; background:#fff2e8; padding:2px 6px; border-radius:4px; font-weight:bold;">${memo}</span>`;
+    $('#qrNotice').innerHTML = `
+      <div style="font-size:15px; margin-bottom:6px;">Số tiền: <b style="color:#d4380d;">10.000đ</b></div>
+      <div style="font-size:13px; color:#555;">Nội dung chuyển khoản (bắt buộc):</div>
+      <div style="display:inline-block; margin-top:5px; font-size:16px; font-weight:bold; color:#0958d9; background:#e6f4ff; border:1px dashed #91caff; padding:4px 14px; border-radius:6px; letter-spacing:1px;">
+        ${memo}
+      </div>
+    `;
   }
+  
   openModal('#payModal');
+  listenPayment(currentUser.id);
 }
 
 if ($('#upgradeBtn')) $('#upgradeBtn').onclick = handleUpgradeClick;
 
 function listenPayment(userId) {
   if (!sbClient) return;
+
+  // 1. Kênh Realtime Supabase
   sbClient
-    .channel('pay_check')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, payload => {
+    .channel('payment_realtime_' + userId)
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'profiles', 
+      filter: `id=eq.${userId}` 
+    }, payload => {
       if (payload.new && payload.new.is_paid) {
-        closeModal('#payModal');
-        alert("🎉 Chúc mừng! Tài khoản của bạn đã được kích hoạt VIP trọn đời thành công!");
-        location.reload();
+        onVipActivated();
       }
     })
     .subscribe();
+
+  // 2. Cơ chế Polling tự động quét lại mỗi 3 giây
+  if (checkPaymentInterval) clearInterval(checkPaymentInterval);
+  checkPaymentInterval = setInterval(async () => {
+    try {
+      const { data: profile } = await sbClient.from('profiles').select('is_paid').eq('id', userId).single();
+      if (profile && profile.is_paid) {
+        clearInterval(checkPaymentInterval);
+        onVipActivated();
+      }
+    } catch (e) {
+      console.warn("Đang đợi ngân hàng...", e);
+    }
+  }, 3000);
 }
 
-// ====== HỆ THỐNG THU ÂM (ĐÃ KHẮC PHỤC TRIỆT ĐỂ) ======
+function onVipActivated() {
+  if (checkPaymentInterval) clearInterval(checkPaymentInterval);
+  closeModal('#payModal');
+  alert("🎉 Chúc mừng! Tài khoản của bạn đã được kích hoạt VIP trọn đời thành công!");
+  location.reload();
+}
+
+// ====== HỆ THỐNG THU ÂM ======
 let activeRecorder = null;
 let mediaStreamRef = null;
 let recordedBase64Admin = '';
@@ -245,7 +283,6 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
   if (!btn) return;
 
   btn.onclick = async () => {
-    // 1. Nếu đang thu âm -> Dừng lại
     if (activeRecorder && activeRecorder.state === 'recording') {
       activeRecorder.stop();
       if (mediaStreamRef) {
@@ -257,11 +294,9 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
       return;
     }
 
-    // 2. Bắt đầu thu âm
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef = stream;
-      
       const mimeType = getSupportedAudioMimeType();
       const options = mimeType ? { mimeType } : {};
       const recorder = new MediaRecorder(stream, options);
@@ -291,8 +326,8 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
       btn.style.background = '#ff4d4f';
       btn.style.color = '#fff';
     } catch (err) {
-      console.error("Lỗi Microphone:", err);
-      alert("Không thể truy cập Micro! Vui lòng kiểm tra quyền Micro trên trình duyệt của bạn.");
+      console.error("Lỗi Micro:", err);
+      alert("Không thể mở Microphone trên trình duyệt.");
     }
   };
 }
@@ -300,7 +335,7 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
 initVoiceRecorder('#btnRecordOwner', '#audioPreviewOwner', b64 => { recordedBase64Admin = b64; });
 initVoiceRecorder('#btnRecordContrib', '#audioPreviewContrib', b64 => { recordedBase64Contrib = b64; });
 
-// ====== MODAL & GIAO DIỆN CHUNG ======
+// ====== MODAL & QUẢN TRỊ ======
 function getExtras() { try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } }
 function loadExtras() { 
   data = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY, ...getExtras()] : [...getExtras()]; 
@@ -328,12 +363,16 @@ if ($('#clear')) $('#clear').onclick = () => { if (q) { q.value = ''; render(); 
 if ($('#loginBtn')) $('#loginBtn').onclick = () => openModal('#authModal');
 if ($('#ownerBtn')) $('#ownerBtn').onclick = () => { openModal('#ownerModal'); loadPendingContributions(); };
 if ($('#contribBtn')) $('#contribBtn').onclick = () => openModal('#contribModal');
-$$('[data-close]').forEach(b => b.onclick = () => closeModal('#' + b.dataset.close));
+$$('[data-close]').forEach(b => b.onclick = () => {
+  closeModal('#' + b.dataset.close);
+  if (b.dataset.close === 'payModal' && checkPaymentInterval) {
+    clearInterval(checkPaymentInterval);
+  }
+});
 window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
 
 function field(prefix, id) { return $(prefix + '_' + id) ? $(prefix + '_' + id).value.trim() : ''; }
 
-// Xử lý gửi đóng góp từ
 if ($('#contribSave')) {
   $('#contribSave').onclick = async () => {
     let mong = field('#c', 'mong'), viet = field('#c', 'viet');
@@ -375,7 +414,6 @@ if ($('#contribSave')) {
   };
 }
 
-// Xử lý Admin thêm từ trực tiếp
 if ($('#ownerSave')) {
   $('#ownerSave').onclick = () => {
     let x = { 
@@ -401,7 +439,6 @@ if ($('#ownerSave')) {
   };
 }
 
-// ====== CHUYỂN TAB & PHÊ DUYỆT / TỪ CHỐI (ADMIN) ======
 if ($('#tabAddDirect')) {
   $('#tabAddDirect').onclick = () => {
     $('#tabAddDirect').classList.add('active');
