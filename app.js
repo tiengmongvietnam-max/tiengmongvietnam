@@ -113,7 +113,7 @@ if (q) {
   };
 }
 
-// ====== HỆ THỐNG XÁC THỰC ======
+// ====== HỆ THỐNG XÁC THỰC & ĐỔI/QUÊN MẬT KHẨU ======
 async function checkAuth() {
   if (!sbClient) return;
   try {
@@ -160,15 +160,23 @@ if ($('#btnDoSignUp')) {
     if (!sbClient) return alert("Hệ thống đang kết nối, vui lòng thử lại!");
     const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
     const msg = $('#authMsg');
-    if (!email || password.length < 6) return (msg.textContent = 'Vui lòng nhập email và mật khẩu >= 6 ký tự!');
+    if (!email || password.length < 6) {
+      msg.style.color = '#cf1322';
+      return (msg.textContent = 'Vui lòng nhập email và mật khẩu >= 6 ký tự!');
+    }
+    msg.style.color = '#096dd9';
     msg.textContent = 'Đang xử lý đăng ký...';
     
     const { data: authData, error } = await sbClient.auth.signUp({ email, password });
-    if (error) return (msg.textContent = error.message);
+    if (error) {
+      msg.style.color = '#cf1322';
+      return (msg.textContent = error.message);
+    }
     
     if (authData && authData.user) {
       await sbClient.from('profiles').upsert([{ id: authData.user.id, email: authData.user.email, role: 'user', is_paid: false }]);
     }
+    msg.style.color = '#389e0d';
     msg.textContent = 'Đăng ký thành công! Đang tải lại...';
     setTimeout(() => location.reload(), 1000);
   };
@@ -179,9 +187,13 @@ if ($('#btnDoLogin')) {
     if (!sbClient) return alert("Hệ thống đang kết nối, vui lòng thử lại!");
     const email = $('#auth_email').value.trim(), password = $('#auth_pass').value.trim();
     const msg = $('#authMsg');
+    msg.style.color = '#096dd9';
     msg.textContent = 'Đang đăng nhập...';
     const { error } = await sbClient.auth.signInWithPassword({ email, password });
-    if (error) return (msg.textContent = 'Sai tài khoản hoặc mật khẩu!');
+    if (error) {
+      msg.style.color = '#cf1322';
+      return (msg.textContent = 'Sai tài khoản hoặc mật khẩu!');
+    }
     location.reload();
   };
 }
@@ -193,7 +205,123 @@ if ($('#logoutBtn')) {
   };
 }
 
-// ====== NÂNG CẤP VIP & TỰ ĐỘNG KÍCH HOẠT (CHÍNH XÁC) ======
+// Chuyển sang giao diện Quên mật khẩu
+if ($('#linkForgotPassword')) {
+  $('#linkForgotPassword').onclick = () => {
+    $('#authTitle').textContent = '📩 Cấp lại mật khẩu';
+    $('#authNote').textContent = 'Nhập email tài khoản của bạn. Hệ thống sẽ gửi một liên kết đổi mật khẩu vào Gmail.';
+    $('#passGroup').style.display = 'none';
+    $('#forgotGroup').style.display = 'none';
+    $('#authActions').style.display = 'none';
+    $('#forgotActions').style.display = 'flex';
+    if ($('#authMsg')) $('#authMsg').textContent = '';
+  };
+}
+
+// Quay lại giao diện Đăng nhập
+if ($('#btnBackToLogin')) {
+  $('#btnBackToLogin').onclick = () => {
+    $('#authTitle').textContent = '🔑 Tài khoản';
+    $('#authNote').textContent = 'Nhập Email và mật khẩu để Đăng nhập hoặc Đăng ký tài khoản.';
+    $('#passGroup').style.display = 'block';
+    $('#forgotGroup').style.display = 'block';
+    $('#authActions').style.display = 'flex';
+    $('#forgotActions').style.display = 'none';
+    if ($('#authMsg')) $('#authMsg').textContent = '';
+  };
+}
+
+// Gửi link cấp lại mật khẩu qua Gmail
+if ($('#btnSendResetEmail')) {
+  $('#btnSendResetEmail').onclick = async () => {
+    if (!sbClient) return;
+    const email = $('#auth_email').value.trim();
+    const msg = $('#authMsg');
+    if (!email) {
+      msg.style.color = '#cf1322';
+      msg.textContent = 'Vui lòng nhập email cần cấp lại mật khẩu!';
+      return;
+    }
+
+    msg.style.color = '#096dd9';
+    msg.textContent = 'Đang gửi thư yêu cầu...';
+
+    const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+
+    if (error) {
+      msg.style.color = '#cf1322';
+      msg.textContent = 'Lỗi: ' + error.message;
+    } else {
+      msg.style.color = '#389e0d';
+      msg.textContent = '✅ Đã gửi link đổi mật khẩu vào Gmail. Vui lòng kiểm tra hộp thư (cả mục Spam/Rác)!';
+    }
+  };
+}
+
+// Mở modal Đổi mật khẩu
+if ($('#changePassBtn')) {
+  $('#changePassBtn').onclick = () => {
+    if ($('#new_password')) $('#new_password').value = '';
+    if ($('#confirm_new_password')) $('#confirm_new_password').value = '';
+    if ($('#changePassMsg')) $('#changePassMsg').textContent = '';
+    openModal('#changePassModal');
+  };
+}
+
+// Lưu mật khẩu mới vào Supabase
+if ($('#btnSaveNewPassword')) {
+  $('#btnSaveNewPassword').onclick = async () => {
+    if (!sbClient) return;
+    const newPass = $('#new_password').value.trim();
+    const confirmPass = $('#confirm_new_password').value.trim();
+    const msg = $('#changePassMsg');
+
+    if (newPass.length < 6) {
+      msg.style.color = '#cf1322';
+      msg.textContent = 'Mật khẩu mới phải có tối thiểu 6 ký tự!';
+      return;
+    }
+    if (newPass !== confirmPass) {
+      msg.style.color = '#cf1322';
+      msg.textContent = 'Mật khẩu xác nhận không khớp!';
+      return;
+    }
+
+    msg.style.color = '#096dd9';
+    msg.textContent = 'Đang lưu mật khẩu mới...';
+
+    const { error } = await sbClient.auth.updateUser({ password: newPass });
+    if (error) {
+      msg.style.color = '#cf1322';
+      msg.textContent = 'Lỗi: ' + error.message;
+    } else {
+      msg.style.color = '#389e0d';
+      msg.textContent = '🎉 Đổi mật khẩu thành công!';
+      setTimeout(() => {
+        closeModal('#changePassModal');
+        msg.textContent = '';
+      }, 1600);
+    }
+  };
+}
+
+// Tự động mở khung Đổi mật khẩu khi mở từ link trong Gmail
+if (sbClient) {
+  sbClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+      openModal('#changePassModal');
+      const msg = $('#changePassMsg');
+      if (msg) {
+        msg.style.color = '#096dd9';
+        msg.textContent = 'Vui lòng nhập mật khẩu mới của bạn bên dưới.';
+      }
+    }
+  });
+}
+
+// ====== NÂNG CẤP VIP & TỰ ĐỘNG KÍCH HOẠT ======
 function handleUpgradeClick() {
   if (!currentUser) {
     alert("Vui lòng đăng nhập hoặc đăng ký tài khoản trước khi quét mã nâng cấp!");
@@ -201,7 +329,6 @@ function handleUpgradeClick() {
     return;
   }
 
-  // Cú pháp nội dung chuẩn: TD + 8 ký tự đầu của User ID
   const userCode = currentUser.id.replace(/-/g, '').slice(0, 8).toUpperCase();
   const memo = 'TD' + userCode;
   const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${VIP_PRICE}&addInfo=${memo}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
@@ -226,7 +353,7 @@ if ($('#upgradeBtn')) $('#upgradeBtn').onclick = handleUpgradeClick;
 function listenPayment(userId) {
   if (!sbClient) return;
 
-  // 1. Kênh Realtime Supabase
+  // Realtime Supabase
   sbClient
     .channel('payment_realtime_' + userId)
     .on('postgres_changes', { 
@@ -241,7 +368,7 @@ function listenPayment(userId) {
     })
     .subscribe();
 
-  // 2. Cơ chế Polling tự động quét lại mỗi 3 giây
+  // Polling dự phòng quét lại mỗi 3s
   if (checkPaymentInterval) clearInterval(checkPaymentInterval);
   checkPaymentInterval = setInterval(async () => {
     try {
@@ -251,7 +378,7 @@ function listenPayment(userId) {
         onVipActivated();
       }
     } catch (e) {
-      console.warn("Đang đợi ngân hàng...", e);
+      console.warn("Đang đợi xác nhận tiền vào...", e);
     }
   }, 3000);
 }
@@ -335,7 +462,7 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
 initVoiceRecorder('#btnRecordOwner', '#audioPreviewOwner', b64 => { recordedBase64Admin = b64; });
 initVoiceRecorder('#btnRecordContrib', '#audioPreviewContrib', b64 => { recordedBase64Contrib = b64; });
 
-// ====== MODAL & QUẢN TRỊ ======
+// ====== MODAL & QUẢN TRỊ ADMIN ======
 function getExtras() { try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } }
 function loadExtras() { 
   data = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY, ...getExtras()] : [...getExtras()]; 
@@ -360,7 +487,10 @@ $$('.tab').forEach(b => b.onclick = () => {
 
 if (exact) exact.onchange = render;
 if ($('#clear')) $('#clear').onclick = () => { if (q) { q.value = ''; render(); q.focus(); } };
-if ($('#loginBtn')) $('#loginBtn').onclick = () => openModal('#authModal');
+if ($('#loginBtn')) $('#loginBtn').onclick = () => {
+  if ($('#btnBackToLogin')) $('#btnBackToLogin').click();
+  openModal('#authModal');
+};
 if ($('#ownerBtn')) $('#ownerBtn').onclick = () => { openModal('#ownerModal'); loadPendingContributions(); };
 if ($('#contribBtn')) $('#contribBtn').onclick = () => openModal('#contribModal');
 $$('[data-close]').forEach(b => b.onclick = () => {
