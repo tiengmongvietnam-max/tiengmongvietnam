@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Từ điển Mông – Việt | Phiên bản 4.2 Pro</title>
-<link rel="stylesheet" href="style.css?v=4.2">
+<title>Từ điển Mông – Việt | Phiên bản 4.3 Pro</title>
+<link rel="stylesheet" href="style.css?v=4.3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -20,7 +20,8 @@
       <div id="userInfo" style="display:none; color:#fff;">
         <span id="userEmail" style="font-weight:bold; font-size:14px;"></span><br>
         <span id="userStatus" style="font-size:13px; background:#fff; color:#117a55; padding:2px 8px; border-radius:10px; font-weight:bold;">Chưa nâng cấp</span>
-        <button id="logoutBtn" style="margin-left:8px; border:none; background:rgba(255,255,255,0.2); color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer;">Đăng xuất</button>
+        <button id="changePassBtn" style="margin-left:8px; border:none; background:rgba(255,255,255,0.25); color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Đổi mật khẩu">🔑 Đổi MK</button>
+        <button id="logoutBtn" style="margin-left:4px; border:none; background:rgba(255,255,255,0.15); color:#fff; border-radius:6px; padding:4px 8px; cursor:pointer;">Đăng xuất</button>
       </div>
     </div>
   </div>
@@ -51,7 +52,7 @@
   <section id="results"></section>
 
   <section class="info">
-    <b>Phiên bản 4.2 Pro</b> · Dữ liệu gốc: <span id="total"></span> mục. Miễn phí 5 lượt tra cứu thử. Để sử dụng trọn đời, vui lòng đăng ký tài khoản và quét mã QR nâng cấp 10.000đ.
+    <b>Phiên bản 4.3 Pro</b> · Dữ liệu gốc: <span id="total"></span> mục. Miễn phí 5 lượt tra cứu thử. Để sử dụng trọn đời, vui lòng đăng ký tài khoản và quét mã QR nâng cấp 10.000đ.
   </section>
 </main>
 
@@ -84,20 +85,48 @@
   </div>
 </div>
 
-<!-- Modal Đăng nhập / Đăng ký -->
+<!-- Modal Đăng nhập / Đăng ký / Quên mật khẩu -->
 <div id="authModal" class="modal">
   <div class="box" style="max-width:420px;">
     <button class="close" data-close="authModal">×</button>
-    <h2>🔑 Tài khoản</h2>
-    <p class="note">Nhập Email và mật khẩu để Đăng nhập hoặc Đăng ký tài khoản tra cứu.</p>
+    <h2 id="authTitle">🔑 Tài khoản</h2>
+    <p class="note" id="authNote">Nhập Email và mật khẩu để Đăng nhập hoặc Đăng ký tài khoản.</p>
     <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
       <label>Email: <input id="auth_email" type="email" placeholder="thaynam@gmail.com"></label>
-      <label>Mật khẩu: <input id="auth_pass" type="password" placeholder="Tối thiểu 6 ký tự"></label>
-      <div class="actions" style="margin-top:10px;">
+      <label id="passGroup">Mật khẩu: <input id="auth_pass" type="password" placeholder="Tối thiểu 6 ký tự"></label>
+      
+      <div id="forgotGroup" style="text-align:right;">
+        <a href="javascript:void(0)" id="linkForgotPassword" style="font-size:13px; color:#1769aa; text-decoration:none;">Quên mật khẩu?</a>
+      </div>
+
+      <div class="actions" id="authActions" style="margin-top:5px;">
         <button id="btnDoLogin" class="primary" style="flex:1;">Đăng nhập</button>
         <button id="btnDoSignUp" style="flex:1;">Đăng ký</button>
       </div>
+
+      <div class="actions" id="forgotActions" style="display:none; margin-top:5px;">
+        <button id="btnSendResetEmail" class="primary" style="flex:1;">Gửi link đổi mật khẩu</button>
+        <button id="btnBackToLogin" style="flex:1;">Quay lại</button>
+      </div>
+
       <div id="authMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Đổi / Đặt lại mật khẩu mới -->
+<div id="changePassModal" class="modal">
+  <div class="box" style="max-width:400px;">
+    <button class="close" data-close="changePassModal">×</button>
+    <h2>🔑 Đổi mật khẩu mới</h2>
+    <p class="note">Nhập mật khẩu mới (tối thiểu 6 ký tự) để cập nhật cho tài khoản.</p>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+      <label>Mật khẩu mới: <input id="new_password" type="password" placeholder="Nhập mật khẩu mới..."></label>
+      <label>Nhập lại mật khẩu mới: <input id="confirm_new_password" type="password" placeholder="Xác nhận mật khẩu mới..."></label>
+      <div class="actions" style="margin-top:8px;">
+        <button id="btnSaveNewPassword" class="primary" style="width:100%;">Lưu mật khẩu mới</button>
+      </div>
+      <div id="changePassMsg" class="msg"></div>
     </div>
   </div>
 </div>
@@ -110,9 +139,9 @@
     <p style="color:#555; font-size:14px; margin-top:6px;">Quét mã VietQR dưới đây để kích hoạt tài khoản vĩnh viễn (Phí: <b>10.000đ</b>).</p>
     <div style="margin:16px 0; background:#f5f7fb; padding:15px; border-radius:12px; border:1px solid #dbe2ea;">
       <img id="qrImg" src="" alt="VietQR" style="max-width:260px; width:100%; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-      <p id="qrNotice" style="margin-top:10px; font-size:14px; font-weight:bold; color:#1769aa;">Hệ thống tự động kích hoạt ngay sau khi nhận tiền!</p>
+      <div id="qrNotice" style="margin-top:10px;"></div>
     </div>
-    <div id="payWaiting" style="color:#667085; font-size:13px;">⏳ Đang chờ hệ thống ngân hàng xác nhận giao dịch...</div>
+    <div id="payWaiting" style="color:#667085; font-size:13px;">⏳ Hệ thống đang tự động kiểm tra và kích hoạt ngay khi nhận tiền...</div>
   </div>
 </div>
 
@@ -164,11 +193,11 @@
 </div>
 
 <footer>
-  <div>Từ điển Mông – Việt 4.2 Pro</div>
+  <div>Từ điển Mông – Việt 4.3 Pro</div>
   <div id="year"></div>
 </footer>
 
 <script src="data.js"></script>
-<script src="app.js?v=4.2"></script>
+<script src="app.js?v=4.3"></script>
 </body>
 </html>
