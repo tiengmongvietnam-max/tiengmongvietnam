@@ -50,7 +50,7 @@ window.playAudio = function(audioBase64, text) {
   }
 };
 
-// ====== LOGIC TRA CỨU ======
+// ====== LOGIC TRA CỨU TỪ ĐIỂN ======
 function render() {
   if (!q || !res || !count) return;
   let n = norm(q.value);
@@ -382,6 +382,125 @@ function onVipActivated() {
   location.reload();
 }
 
+// ====== TRỢ LÝ SOẠN THẢO & TẠO BÀI VIẾT (TÍNH NĂNG MỚI) ======
+if ($('#writerBtn')) {
+  $('#writerBtn').onclick = () => {
+    openModal('#writerModal');
+    updateWriterSuggestions();
+  };
+}
+
+let writerDebounce = null;
+if ($('#writerInput')) {
+  $('#writerInput').oninput = () => {
+    clearTimeout(writerDebounce);
+    writerDebounce = setTimeout(updateWriterSuggestions, 300);
+  };
+}
+
+function updateWriterSuggestions() {
+  const inputEl = $('#writerInput');
+  const suggBox = $('#writerSuggestions');
+  const countEl = $('#writerMatchCount');
+  if (!inputEl || !suggBox) return;
+
+  const text = norm(inputEl.value);
+  if (!text) {
+    if (countEl) countEl.textContent = '0';
+    suggBox.innerHTML = '<div style="color:#888; font-size:13px; text-align:center; padding:30px 10px;">Hãy gõ từ hoặc câu vào ô soạn thảo bên trái để nhận gợi ý từ vựng phù hợp.</div>';
+    return;
+  }
+
+  // Tách các từ trong đoạn văn để so khớp ngữ liệu
+  const wordsInText = text.split(/[\s,.\?!;:\n\r\t]+/).filter(w => w.length >= 2);
+  if (wordsInText.length === 0) return;
+
+  let matched = [];
+  let seen = new Set();
+
+  data.forEach(item => {
+    const m = norm(item.mong), v = norm(item.viet);
+    const hasMatch = wordsInText.some(w => m.includes(w) || v.includes(w) || w.includes(m) || w.includes(v));
+    if (hasMatch && !seen.has(item.mong + '_' + item.viet)) {
+      seen.add(item.mong + '_' + item.viet);
+      matched.push(item);
+    }
+  });
+
+  if (countEl) countEl.textContent = matched.length;
+
+  if (matched.length === 0) {
+    suggBox.innerHTML = '<div style="color:#888; font-size:13px; text-align:center; padding:20px 10px;">Không tìm thấy từ vựng trùng khớp trực tiếp trong từ điển.</div>';
+    return;
+  }
+
+  suggBox.innerHTML = matched.slice(0, 15).map(it => {
+    const audioData = it.audio ? esc(it.audio) : '';
+    return `
+      <div style="background:#fff; border:1px solid #e8e8e8; border-radius:6px; padding:8px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b style="color:#1d39c4;">${esc(it.mong)}</b>
+          <div style="display:flex; gap:4px;">
+            <button onclick="playAudio('${audioData}', '${esc(it.mong)}')" style="border:none; background:#e6f7ff; color:#0050b3; border-radius:4px; padding:2px 6px; cursor:pointer;" title="Phát âm">🔊</button>
+            <button onclick="insertWordToWriter('${esc(it.mong)}')" style="border:none; background:#f6ffed; color:#389e0d; border-radius:4px; padding:2px 6px; cursor:pointer;" title="Chèn vào bài viết">+ Chèn</button>
+          </div>
+        </div>
+        <div style="color:#555; margin-top:2px;">Nghĩa: <i>${esc(it.viet)}</i></div>
+        ${it.example ? `<div style="color:#888; font-size:11px; margin-top:3px; background:#fafafa; padding:2px 4px; border-radius:3px;">VD: ${esc(it.example)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+window.insertWordToWriter = function(word) {
+  const inputEl = $('#writerInput');
+  if (!inputEl) return;
+  inputEl.value = (inputEl.value.trim() ? inputEl.value + ' ' : '') + word;
+  inputEl.focus();
+  updateWriterSuggestions();
+};
+
+if ($('#btnClearWriter')) {
+  $('#btnClearWriter').onclick = () => {
+    if (confirm("Thầy có muốn xóa toàn bộ nội dung soạn thảo hiện tại?")) {
+      $('#writerInput').value = '';
+      updateWriterSuggestions();
+    }
+  };
+}
+
+if ($('#btnCopyWriter')) {
+  $('#btnCopyWriter').onclick = () => {
+    const inputEl = $('#writerInput');
+    const msg = $('#writerCopyMsg');
+    if (!inputEl || !inputEl.value.trim()) return alert("Vui lòng nhập nội dung trước khi sao chép!");
+    navigator.clipboard.writeText(inputEl.value).then(() => {
+      if (msg) {
+        msg.textContent = '✓ Đã sao chép vào bộ nhớ tạm!';
+        setTimeout(() => msg.textContent = '', 2000);
+      }
+    });
+  };
+}
+
+if ($('#btnInsertTemplate')) {
+  $('#btnInsertTemplate').onclick = () => {
+    const templates = [
+      "Nyob zoo sawv daws! (Xin chào tất cả mọi người!)",
+      "Koj tuaj qhov twg tuaj? (Bạn từ đâu đến?)",
+      "Kuv mus kawm ntawv. (Tôi đi học bài.)",
+      "Hnub no huab cua zoo heev. (Hôm nay thời tiết rất đẹp.)",
+      "Kuv hlub kuv tsev neeg heev. (Tôi rất yêu quý gia đình của mình.)"
+    ];
+    const sample = templates[Math.floor(Math.random() * templates.length)];
+    const inputEl = $('#writerInput');
+    if (inputEl) {
+      inputEl.value = (inputEl.value.trim() ? inputEl.value + '\n' : '') + sample;
+      updateWriterSuggestions();
+    }
+  };
+}
+
 // ====== HỆ THỐNG THU ÂM ======
 let activeRecorder = null;
 let mediaStreamRef = null;
@@ -683,7 +802,7 @@ if ($('#exportData')) {
 }
 
 if ($('#clearExtras')) {
-  $('#clearExtras').style.display = 'none'; // Ẩn nút xóa tạm
+  $('#clearExtras').style.display = 'none';
 }
 
 if ($('#year')) $('#year').textContent = '2026';
