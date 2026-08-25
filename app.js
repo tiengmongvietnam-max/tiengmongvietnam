@@ -205,7 +205,6 @@ if ($('#logoutBtn')) {
   };
 }
 
-// Chuyển sang giao diện Quên mật khẩu
 if ($('#linkForgotPassword')) {
   $('#linkForgotPassword').onclick = () => {
     $('#authTitle').textContent = '📩 Cấp lại mật khẩu';
@@ -218,7 +217,6 @@ if ($('#linkForgotPassword')) {
   };
 }
 
-// Quay lại giao diện Đăng nhập
 if ($('#btnBackToLogin')) {
   $('#btnBackToLogin').onclick = () => {
     $('#authTitle').textContent = '🔑 Tài khoản';
@@ -231,7 +229,6 @@ if ($('#btnBackToLogin')) {
   };
 }
 
-// Gửi link cấp lại mật khẩu qua Gmail
 if ($('#btnSendResetEmail')) {
   $('#btnSendResetEmail').onclick = async () => {
     if (!sbClient) return;
@@ -255,12 +252,11 @@ if ($('#btnSendResetEmail')) {
       msg.textContent = 'Lỗi: ' + error.message;
     } else {
       msg.style.color = '#389e0d';
-      msg.textContent = '✅ Đã gửi link đổi mật khẩu vào Gmail. Vui lòng kiểm tra hộp thư (cả mục Spam/Rác)!';
+      msg.textContent = '✅ Đã gửi link đổi mật khẩu vào Gmail. Vui lòng kiểm tra hộp thư!';
     }
   };
 }
 
-// Mở modal Đổi mật khẩu
 if ($('#changePassBtn')) {
   $('#changePassBtn').onclick = () => {
     if ($('#new_password')) $('#new_password').value = '';
@@ -270,7 +266,6 @@ if ($('#changePassBtn')) {
   };
 }
 
-// Lưu mật khẩu mới vào Supabase
 if ($('#btnSaveNewPassword')) {
   $('#btnSaveNewPassword').onclick = async () => {
     if (!sbClient) return;
@@ -307,9 +302,8 @@ if ($('#btnSaveNewPassword')) {
   };
 }
 
-// Tự động mở khung Đổi mật khẩu khi mở từ link trong Gmail
 if (sbClient) {
-  sbClient.auth.onAuthStateChange(async (event, session) => {
+  sbClient.auth.onAuthStateChange(async (event) => {
     if (event === "PASSWORD_RECOVERY") {
       openModal('#changePassModal');
       const msg = $('#changePassMsg');
@@ -353,7 +347,6 @@ if ($('#upgradeBtn')) $('#upgradeBtn').onclick = handleUpgradeClick;
 function listenPayment(userId) {
   if (!sbClient) return;
 
-  // Realtime Supabase
   sbClient
     .channel('payment_realtime_' + userId)
     .on('postgres_changes', { 
@@ -368,7 +361,6 @@ function listenPayment(userId) {
     })
     .subscribe();
 
-  // Polling dự phòng quét lại mỗi 3s
   if (checkPaymentInterval) clearInterval(checkPaymentInterval);
   checkPaymentInterval = setInterval(async () => {
     try {
@@ -462,13 +454,26 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
 initVoiceRecorder('#btnRecordOwner', '#audioPreviewOwner', b64 => { recordedBase64Admin = b64; });
 initVoiceRecorder('#btnRecordContrib', '#audioPreviewContrib', b64 => { recordedBase64Contrib = b64; });
 
-// ====== MODAL & QUẢN TRỊ ADMIN ======
-function getExtras() { try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } }
-function loadExtras() { 
-  data = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY, ...getExtras()] : [...getExtras()]; 
+// ====== TẢI DỮ LIỆU TỪ SUPABASE (TỰ ĐỘNG & VĨNH VIỄN) ======
+async function loadExtras() { 
+  let baseData = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY] : [];
+  
+  if (sbClient) {
+    try {
+      const { data: cloudWords, error } = await sbClient.from('words').select('*').order('id', { ascending: true });
+      if (!error && cloudWords && cloudWords.length > 0) {
+        baseData = [...baseData, ...cloudWords];
+      }
+    } catch (e) {
+      console.warn("Lỗi tải từ đám mây:", e);
+    }
+  }
+  
+  data = baseData;
   if ($('#total')) $('#total').textContent = data.length.toLocaleString('vi-VN'); 
   render(); 
 }
+
 function openModal(id) { if ($(id)) $(id).style.display = 'flex'; }
 function closeModal(id) { if ($(id)) $(id).style.display = 'none'; }
 
@@ -503,6 +508,7 @@ window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style
 
 function field(prefix, id) { return $(prefix + '_' + id) ? $(prefix + '_' + id).value.trim() : ''; }
 
+// Gửi đóng góp từ độc giả
 if ($('#contribSave')) {
   $('#contribSave').onclick = async () => {
     let mong = field('#c', 'mong'), viet = field('#c', 'viet');
@@ -544,28 +550,42 @@ if ($('#contribSave')) {
   };
 }
 
+// Admin thêm từ trực tiếp -> LƯU VĨNH VIỄN VÀO SUPABASE
 if ($('#ownerSave')) {
-  $('#ownerSave').onclick = () => {
-    let x = { 
-      mong: field('#o', 'mong'), 
-      viet: field('#o', 'viet'), 
+  $('#ownerSave').onclick = async () => {
+    let mong = field('#o', 'mong'), viet = field('#o', 'viet');
+    let msg = $('#ownerMsg');
+    if (!mong || !viet) { 
+      if (msg) { msg.style.color = '#cf1322'; msg.textContent = 'Vui lòng nhập tiếng Mông và nghĩa.'; }
+      return; 
+    }
+
+    let newWord = { 
+      mong: mong, 
+      viet: viet, 
       initial: field('#o', 'initial'), 
       vowel: field('#o', 'vowel'), 
       tone: field('#o', 'tone'), 
       example: field('#o', 'example'), 
-      source: field('#o', 'source'),
+      source: field('#o', 'source') || 'Ban quản trị',
       audio: recordedBase64Admin || ''
     };
-    let msg = $('#ownerMsg');
-    if (!x.mong || !x.viet) { if (msg) msg.textContent = 'Vui lòng nhập tiếng Mông và nghĩa.'; return; }
-    let extras = getExtras();
-    extras.push(x);
-    localStorage.setItem('mongviet_owner_extra', JSON.stringify(extras));
+
+    if (msg) { msg.style.color = '#096dd9'; msg.textContent = 'Đang lưu từ mới lên hệ thống...'; }
+
+    if (sbClient) {
+      const { error } = await sbClient.from('words').insert([newWord]);
+      if (error) {
+        if (msg) { msg.style.color = '#cf1322'; msg.textContent = 'Lỗi lưu: ' + error.message; }
+        return;
+      }
+    }
+
     ['mong', 'viet', 'initial', 'vowel', 'tone', 'example', 'source'].forEach(k => { if ($('#o_' + k)) $('#o_' + k).value = ''; });
     if ($('#audioPreviewOwner')) $('#audioPreviewOwner').style.display = 'none';
     recordedBase64Admin = '';
-    if (msg) msg.textContent = 'Đã lưu từ mới và giọng đọc mẫu vào từ điển!';
-    loadExtras();
+    if (msg) { msg.style.color = '#389e0d'; msg.textContent = '🎉 Đã lưu từ mới vĩnh viễn vào hệ thống từ điển!'; }
+    await loadExtras();
   };
 }
 
@@ -595,7 +615,7 @@ async function loadPendingContributions() {
   
   const { data: items, error } = await sbClient.from('contributions').select('*').eq('status', 'pending').order('created_at', { ascending: false });
   if (error || !items) {
-    listEl.innerHTML = '<div style="color:red; text-align:center;">Lỗi tải dữ liệu đóng góp!</div>';
+    listEl.innerHTML = '<div style="color:red; text-align:center;">Lỗi tải danh sách đóng góp!</div>';
     return;
   }
 
@@ -623,12 +643,12 @@ async function loadPendingContributions() {
   `).join('');
 }
 
+// Duyệt đóng góp -> LƯU VĨNH VIỄN VÀO SUPABASE
 window.approveContrib = async function(id) {
   if (!sbClient) return;
   const { data: item } = await sbClient.from('contributions').select('*').eq('id', id).single();
   if (item) {
-    let extras = getExtras();
-    extras.push({
+    await sbClient.from('words').insert([{
       mong: item.mong,
       viet: item.viet,
       initial: item.initial || '',
@@ -637,11 +657,11 @@ window.approveContrib = async function(id) {
       example: item.example || '',
       source: 'Đóng góp bởi: ' + (item.author || 'Bạn đọc'),
       audio: item.audio || ''
-    });
-    localStorage.setItem('mongviet_owner_extra', JSON.stringify(extras));
+    }]);
+
     await sbClient.from('contributions').update({ status: 'approved' }).eq('id', id);
-    alert(`Đã duyệt và thêm từ "${item.mong}" vào từ điển!`);
-    loadExtras();
+    alert(`Đã duyệt và lưu từ "${item.mong}" vĩnh viễn vào từ điển!`);
+    await loadExtras();
     loadPendingContributions();
   }
 };
@@ -663,11 +683,7 @@ if ($('#exportData')) {
 }
 
 if ($('#clearExtras')) {
-  $('#clearExtras').onclick = () => {
-    if (!confirm('Xóa toàn bộ từ bổ sung?')) return;
-    localStorage.removeItem('mongviet_owner_extra');
-    loadExtras();
-  };
+  $('#clearExtras').style.display = 'none'; // Ẩn nút xóa tạm
 }
 
 if ($('#year')) $('#year').textContent = '2026';
