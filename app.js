@@ -1,4 +1,4 @@
-// ====== CẤU HÌNH NGÂN HÀNG & SUPABASE ======
+// ====== CẤU HÌNH NGÂN HÀNG, SUPABASE & GEMINI AI ======
 const BANK_ID = "MB";
 const ACCOUNT_NO = "0569999956789";
 const ACCOUNT_NAME = "TRIEU XUAN NAM"; 
@@ -6,6 +6,9 @@ const VIP_PRICE = 10000;
 
 const SUPABASE_URL = 'https://emplcjjqcwpundaqklci.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtcGxjampxY3dwdW5kYXFrbGNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczOTEyNjAsImV4cCI6MjEwMjk2NzI2MH0.lXf9toe-FO_eeB0MtIIeyWf7f1E0TtKoRsCXj-SfvyM';
+
+// Khóa API Gemini của Thầy
+const GEMINI_API_KEY = "AQ.Ab8RN6LRLT6psy-OXTUkO3-vkFsgATfcaiNxon4myKzaItTcAA";
 
 let sbClient = null;
 try {
@@ -382,7 +385,7 @@ function onVipActivated() {
   location.reload();
 }
 
-// ====== TRỢ LÝ SOẠN THẢO & TẠO BÀI VIẾT (TÍNH NĂNG MỚI) ======
+// ====== TRỢ LÝ AI SOẠN THẢO & TẠO BÀI VIẾT (TÍNH NĂNG MỚI) ======
 if ($('#writerBtn')) {
   $('#writerBtn').onclick = () => {
     openModal('#writerModal');
@@ -407,11 +410,10 @@ function updateWriterSuggestions() {
   const text = norm(inputEl.value);
   if (!text) {
     if (countEl) countEl.textContent = '0';
-    suggBox.innerHTML = '<div style="color:#888; font-size:13px; text-align:center; padding:30px 10px;">Hãy gõ từ hoặc câu vào ô soạn thảo bên trái để nhận gợi ý từ vựng phù hợp.</div>';
+    suggBox.innerHTML = '<div style="color:#888; font-size:13px; text-align:center; padding:30px 10px;">Từ vựng tiếng Mông có trong bài viết sẽ hiển thị ở đây kèm phát âm.</div>';
     return;
   }
 
-  // Tách các từ trong đoạn văn để so khớp ngữ liệu
   const wordsInText = text.split(/[\s,.\?!;:\n\r\t]+/).filter(w => w.length >= 2);
   if (wordsInText.length === 0) return;
 
@@ -501,7 +503,63 @@ if ($('#btnInsertTemplate')) {
   };
 }
 
-// ====== HỆ THỐNG THU ÂM ======
+// XỬ LÝ VIẾT BÀI TỰ ĐỘNG BẰNG GEMINI AI
+if ($('#btnGenerateAI')) {
+  $('#btnGenerateAI').onclick = async () => {
+    const promptInput = $('#aiPromptInput');
+    const loadingEl = $('#aiLoading');
+    const outputEl = $('#writerInput');
+    const userPrompt = promptInput ? promptInput.value.trim() : '';
+
+    if (!userPrompt) {
+      alert("Vui lòng nhập yêu cầu viết bài (ví dụ: Hãy viết đoạn văn giới thiệu về chợ phiên...)");
+      return;
+    }
+
+    if (loadingEl) loadingEl.style.display = 'block';
+    if ($('#btnGenerateAI')) $('#btnGenerateAI').disabled = true;
+
+    try {
+      const vocabContext = data.slice(0, 150).map(x => `${x.mong} = ${x.viet}`).join(', ');
+
+      const systemPrompt = `Bạn là chuyên gia ngôn ngữ tiếng Mông (Việt Nam) và giáo viên văn học.
+Nhiệm vụ: Dựa vào vốn từ vựng tiếng Mông chuẩn (ngữ liệu tham khảo: ${vocabContext}), hãy viết bài theo đúng yêu cầu sau:
+"${userPrompt}"
+
+Yêu cầu xuất kết quả:
+1. Đoạn văn bằng TIẾNG MÔNG (chuẩn chữ Mông Latinh/RPA Việt Nam).
+2. Đoạn dịch nghĩa TIẾNG VIỆT tương ứng ngay bên dưới.
+3. Câu văn mạch lạc, đúng ngữ pháp, gần gũi với đời sống văn hóa đồng bào Mông.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }]
+        })
+      });
+
+      const resData = await response.json();
+      if (resData.candidates && resData.candidates[0].content.parts[0].text) {
+        const generatedText = resData.candidates[0].content.parts[0].text;
+        if (outputEl) {
+          outputEl.value = generatedText;
+          updateWriterSuggestions();
+        }
+      } else {
+        alert("Không nhận được phản hồi từ AI. Vui lòng kiểm tra lại kết nối mạng!");
+      }
+    } catch (err) {
+      console.error("Lỗi AI:", err);
+      alert("Lỗi khi kết nối với AI: " + err.message);
+    } finally {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if ($('#btnGenerateAI')) $('#btnGenerateAI').disabled = false;
+    }
+  };
+}
+
+// ====== HỆ THỐNG THU ÂM & QUẢN TRỊ GHI ÂM ======
 let activeRecorder = null;
 let mediaStreamRef = null;
 let recordedBase64Admin = '';
@@ -515,9 +573,10 @@ function getSupportedAudioMimeType() {
   return '';
 }
 
-function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
+function initVoiceRecorder(btnId, audioPreviewId, deleteBtnId, onFinish) {
   const btn = $(btnId);
   const audioPreview = $(audioPreviewId);
+  const delBtn = $(deleteBtnId);
   if (!btn) return;
 
   btn.onclick = async () => {
@@ -556,6 +615,7 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
             audioPreview.src = base64;
             audioPreview.style.display = 'block';
           }
+          if (delBtn) delBtn.style.display = 'inline-block';
         };
       };
 
@@ -568,12 +628,30 @@ function initVoiceRecorder(btnId, audioPreviewId, onFinish) {
       alert("Không thể mở Microphone trên trình duyệt.");
     }
   };
+
+  if (delBtn) {
+    delBtn.onclick = () => {
+      onFinish('');
+      if (audioPreview) {
+        audioPreview.src = '';
+        audioPreview.style.display = 'none';
+      }
+      delBtn.style.display = 'none';
+      btn.textContent = '🎙️ Bấm để Thu âm';
+      btn.style.background = '#e6f7ff';
+      btn.style.color = '#0050b3';
+    };
+  }
 }
 
-initVoiceRecorder('#btnRecordOwner', '#audioPreviewOwner', b64 => { recordedBase64Admin = b64; });
-initVoiceRecorder('#btnRecordContrib', '#audioPreviewContrib', b64 => { recordedBase64Contrib = b64; });
+initVoiceRecorder('#btnRecordOwner', '#audioPreviewOwner', '#btnDeleteAudioOwner', b64 => { recordedBase64Admin = b64; });
+initVoiceRecorder('#btnRecordContrib', '#audioPreviewContrib', '#btnDeleteAudioContrib', b64 => { recordedBase64Contrib = b64; });
 
 // ====== TẢI DỮ LIỆU TỪ SUPABASE (TỰ ĐỘNG & VĨNH VIỄN) ======
+function getExtrasLocal() { 
+  try { return JSON.parse(localStorage.getItem('mongviet_owner_extra') || '[]') } catch { return [] } 
+}
+
 async function loadExtras() { 
   let baseData = (typeof DICTIONARY !== 'undefined') ? [...DICTIONARY] : [];
   
@@ -585,6 +663,28 @@ async function loadExtras() {
       }
     } catch (e) {
       console.warn("Lỗi tải từ đám mây:", e);
+    }
+
+    // Tự động chuyển các từ cũ lưu tạm trong máy lên Supabase
+    const localWords = getExtrasLocal();
+    if (localWords.length > 0) {
+      for (const lw of localWords) {
+        const exists = baseData.some(bw => norm(bw.mong) === norm(lw.mong) && norm(bw.viet) === norm(lw.viet));
+        if (!exists) {
+          baseData.push(lw);
+          await sbClient.from('words').insert([{
+            mong: lw.mong,
+            viet: lw.viet,
+            initial: lw.initial || '',
+            vowel: lw.vowel || '',
+            tone: lw.tone || '',
+            example: lw.example || '',
+            source: lw.source || 'Ban quản trị',
+            audio: lw.audio || ''
+          }]);
+        }
+      }
+      localStorage.removeItem('mongviet_owner_extra');
     }
   }
   
@@ -664,6 +764,7 @@ if ($('#contribSave')) {
     }
     ['mong', 'viet', 'initial', 'vowel', 'tone', 'example', 'author'].forEach(k => { if ($('#c_' + k)) $('#c_' + k).value = ''; });
     if ($('#audioPreviewContrib')) $('#audioPreviewContrib').style.display = 'none';
+    if ($('#btnDeleteAudioContrib')) $('#btnDeleteAudioContrib').style.display = 'none';
     recordedBase64Contrib = '';
     setTimeout(() => { closeModal('#contribModal'); if (msg) msg.textContent = ''; }, 2500);
   };
@@ -702,6 +803,7 @@ if ($('#ownerSave')) {
 
     ['mong', 'viet', 'initial', 'vowel', 'tone', 'example', 'source'].forEach(k => { if ($('#o_' + k)) $('#o_' + k).value = ''; });
     if ($('#audioPreviewOwner')) $('#audioPreviewOwner').style.display = 'none';
+    if ($('#btnDeleteAudioOwner')) $('#btnDeleteAudioOwner').style.display = 'none';
     recordedBase64Admin = '';
     if (msg) { msg.style.color = '#389e0d'; msg.textContent = '🎉 Đã lưu từ mới vĩnh viễn vào hệ thống từ điển!'; }
     await loadExtras();
